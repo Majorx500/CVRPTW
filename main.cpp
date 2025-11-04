@@ -28,7 +28,6 @@ struct Vehicle{
 std::string formatData(const std::string& input);
 void readFile(const char* name, std::vector<Customer>& customers);
 std::vector<int> splitVector(const std::vector<int> &vector, int index, bool &emptyVector);
-
 //Gets file given as an argument and processes data to relevant components.
 void readFile(const char* name, std::vector<Customer>& customers){
     //std::cout << "Print Hello World\n";
@@ -186,9 +185,21 @@ std::vector<int> copyVector(const std::vector<int> &original){
     return original;
 }
 
+//will take the split routes and find first correct route (due time and capacity of the customer)
+void repairSubRoutes(const std::vector<int> &route, const std::vector<Customer> &customers, const std::vector<std::vector<float>> &distanceMatrix)
+{
+    std::vector<int> currentRoute;
+    float currentTime, currentDistance = 0;
+    for(int i=0; i < route.size(); i++){
+        //add distance and time to the variables
+        std::cout << "Work in progress";
+    }
+}
 
 
-void repairSolution(std::vector<int>&res){
+
+void repairSolution(std::vector<int>& res, const std::vector<Customer>& customers, const std::vector<std::vector<float>>& distanceMatrix)
+{
     //due time and capacity of the customer
     std::vector<int> vectorCopy = copyVector(res);
     std::vector<int> testVector = {0, 3, 2, 1, 4, 0, 1, 5 ,7 ,6, 8, 0}; //only for tests
@@ -203,13 +214,17 @@ void repairSolution(std::vector<int>&res){
             }
         }
     }
+        for (int i = 0; i < partialVector.size(); i++) {
+            repairSubRoutes(partialVector.at(i), customers, distanceMatrix);
+        }
+
         //YAP YAP YAP YAP YAP YAP YAP YAP YAP YAP YAP
         //displaying splited vectors (test only)
-        for(int i=0; i< partialVector.size(); i++){
+        /*for(int i=0; i< partialVector.size(); i++){
             std::cout<<"Test vector: \n";
             printVector(partialVector.at(i));  
     
-        }
+        }*/
     }
 
 std::vector<int> splitVector(const std::vector<int> &vector, int index, bool &emptyVector){
@@ -243,7 +258,7 @@ int main(int argc, char* argv[]){
     //std::cout << incidenceMatrix[0].size();
     std::cout << generateInitialSolution(customers,distanceMatrix,res,N,maxWeight)<< "\n";
     printVector(res);
-    repairSolution(res);
+    repairSolution(res,customers,distanceMatrix);
     //display added customers;
     /*for(int i=0; i<=N; i++){
         std::cout << customers.at(i).id << " ";
