@@ -186,15 +186,45 @@ std::vector<int> copyVector(const std::vector<int> &original){
 }
 
 //will take the split routes and find first correct route (due time and capacity of the customer)
+//!!!!!!!!!!!!!IMPORTANT THIS DOES NOT TAKE THE DATA FROM THE FILES!!!!!
 void repairSubRoutes(const std::vector<int> &route, const std::vector<Customer> &customers, const std::vector<std::vector<float>> &distanceMatrix)
 {
-    std::vector<int> currentRoute;
-    float currentTime, currentDistance = 0;
-    for(int i=0; i < route.size(); i++){
-        //add distance and time to the variables
-        std::cout << "Work in progress";
+    int testTruckCapacity = 20;
+    float currentTime = 0;
+    int currentLoad = 0;
+
+    for (int i = 0; i < route.size() - 1; i++) {
+        int from = route[i];
+        int to = route[i + 1];
+        float travelTime = distanceMatrix[from][to];
+        std::cout << "travel time:" << travelTime << "\n";
+
+        currentTime += travelTime;
+
+        if (currentTime > customers[to].dueTime) {
+            std::cout << "Cannot arrive in time to " << customers[to].id << "\n";
+            return;
+        }
+
+        //waiting till window open
+        if (currentTime < customers[to].readyTime)
+            currentTime = customers[to].readyTime;
+
+        currentTime += customers[to].serviceTime;
+        currentLoad += customers[to].demand;
+
+        if (currentLoad > testTruckCapacity) {
+            std::cout << "TO: " <<  to;
+            std::cout << "Over truck capacity" << customers[to].id << "\n";
+            return;
+        }
     }
+
+    std::cout << "Route correct!\n";
+    std::cout << "Time: " << currentTime;
+    std::cout << "Load: " << currentLoad;
 }
+
 
 
 
@@ -202,7 +232,7 @@ void repairSolution(std::vector<int>& res, const std::vector<Customer>& customer
 {
     //due time and capacity of the customer
     std::vector<int> vectorCopy = copyVector(res);
-    std::vector<int> testVector = {0, 3, 2, 1, 4, 0, 1, 5 ,7 ,6, 8, 0}; //only for tests
+    std::vector<int> testVector = { 0, 3, 2, 1, 0}; //only for tests
 
     std::vector<std::vector<int>> partialVector;
     for(int i = 0; i< testVector.size(); i++){
@@ -214,17 +244,15 @@ void repairSolution(std::vector<int>& res, const std::vector<Customer>& customer
             }
         }
     }
-        for (int i = 0; i < partialVector.size(); i++) {
-            repairSubRoutes(partialVector.at(i), customers, distanceMatrix);
-        }
-
         //YAP YAP YAP YAP YAP YAP YAP YAP YAP YAP YAP
         //displaying splited vectors (test only)
-        /*for(int i=0; i< partialVector.size(); i++){
+        for(int i=0; i< partialVector.size(); i++){
             std::cout<<"Test vector: \n";
             printVector(partialVector.at(i));  
-    
-        }*/
+        }
+
+        for (int i = 0; i < partialVector.size(); i++) 
+            repairSubRoutes(partialVector.at(i), customers, distanceMatrix);
     }
 
 std::vector<int> splitVector(const std::vector<int> &vector, int index, bool &emptyVector){
