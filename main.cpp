@@ -111,11 +111,10 @@ void printVector(std::vector<T> M){
 }
 
 template<typename T>
-T max(std::vector<T> V, int &k){
+T max(std::vector<T> V){
 	T max = V[0];
 	for(int i = 1; i < V.size(); i++){
 		if(V[i] > max){
-			k = i;
 			max = V[i];
 		}
 	}
@@ -141,25 +140,31 @@ int generateInitialSolution(std::vector<Customer> customers, std::vector<std::ve
 	visited[i] = true; visited[0] = true;
 	res.push_back(i);
 	curWeight -= customers[i].demand;
-	currentTruckTime = distanceMatrix[0][i];
+	currentTruckTime = distanceMatrix[0][i] + customers[i].serviceTime;
 	// Generate Initial CVRP Solution
 	while( visitedCount < N-1){
- 		int shortestDistI = 0;
-		float shortestDistance = max(distanceMatrix[i],shortestDistI);	
+ 		int shortestDistI = -1;
+		float shortestDistance = max(distanceMatrix[i]);	
 		for(int k = 1;k < N; k++){
 			if(k == i || visited[k] || distanceMatrix[i][k] > shortestDistance) continue;
+			if(currentTruckTime + distanceMatrix[i][k] > customers[k].dueTime) continue;
 			shortestDistance = distanceMatrix[i][k];	
 			shortestDistI = k;
 		}
 		//std::cout << shortestDistance << " ";
-		if(curWeight - customers[shortestDistI].demand < 0 || shortestDistance > distanceMatrix[0][shortestDistI]){
-			res.push_back(0);
+		if(shortestDistI == -1 || curWeight - customers[shortestDistI].demand < 0){
 			curWeight = maxWeight;
-			totalTime += currentTruckTime + distanceMatrix[shortestDistI][0]; 
-
+			totalTime += currentTruckTime + distanceMatrix[res.back()][0]; 
+			currentTruckTime = 0;
+			res.push_back(0);
 			i = 0;
+			continue;
 		}
-		currentTruckTime += distanceMatrix[i][shortestDistI] + customers[shortestDistI].serviceTime;
+		float arriveTime = currentTruckTime + distanceMatrix[res.back()][shortestDistI];
+		std::cout << shortestDistI << " : " << arriveTime << "\n";usleep(5000);	
+		if(arriveTime < customers[shortestDistI].readyTime) arriveTime = customers[shortestDistI].readyTime;
+		if(arriveTime > customers[shortestDistI].dueTime) continue;
+		currentTruckTime = arriveTime + customers[shortestDistI].serviceTime;
 		curWeight -= customers[shortestDistI].demand;
 		visited[shortestDistI] = true;
 		res.push_back(shortestDistI);
@@ -171,6 +176,7 @@ int generateInitialSolution(std::vector<Customer> customers, std::vector<std::ve
 	// Modify CVRP solution to fit time frames
 	printVector(res);
 	i =1;
+	/*
 	bool swapped = false;
 	//res = {0, 25, 4, 21, 22, 23, 0, 2, 13, 6, 5, 17, 16, 14, 15, 0, 12, 3, 24, 9, 20, 10, 11, 19, 7, 18, 8, 0, 1, 0};
 	while(i < res.size()-1){
@@ -181,7 +187,7 @@ int generateInitialSolution(std::vector<Customer> customers, std::vector<std::ve
 		//sort route by lowest due time
 		for(int k = i; k < j; k++){
 			for(int l = k; l < j; l++){
-				if(customers[res[l]].dueTime < customers[res[lowestDueTimeI]].dueTime) lowestDueTimeI = l;
+				if(customers[res[l]].readyTime < customers[res[lowestDueTimeI]].readyTime) lowestDueTimeI = l;
 			}
 			if(k==lowestDueTimeI) continue;
 			std::swap(res[k],res[lowestDueTimeI]);
@@ -190,8 +196,8 @@ int generateInitialSolution(std::vector<Customer> customers, std::vector<std::ve
 		//if customer not in time frame move to new route at the end
 		for(int k = i+1; k < j; k++){
 			swapped=false;
-			currentTruckTime += distanceMatrix[res[k-1]][res[k]];
-			if(currentTruckTime > customers[res[k]].dueTime){
+			float arriveTime = distanceMatrix[res[k-1]][res[k]] + currentTruckTime;
+			if(arriveTime > customers[res[k]].dueTime){
 				std::cout << k << "\n";
 				if(j == res.size()-1) res.push_back(0);
 				currentTruckTime -=distanceMatrix[res[k-1]][res[k]];
@@ -209,15 +215,15 @@ int generateInitialSolution(std::vector<Customer> customers, std::vector<std::ve
 			}
 			currentTruckTime += distanceMatrix[res[k-1]][res[k]];
 			if(currentTruckTime < customers[res[k]].readyTime) currentTruckTime = customers[res[k]].readyTime;
-			currentTruckTime += customers[res[k]].serviceTime;
-			
+			currentTruckTime += customers[res[k]].serviceTime;			
+			std::cout << currentTruckTime << "\n";
 		}
 		//std::cout << j << "\n";
 		//printVector(res);std::cout << "\n";
 		i= j+1;
 	}
 	if(res.back() != 0) res.push_back(0);
-		
+	*/	
 	return totalTime;
 }
 void prettyPrintRes(std::vector<int> res, std::vector<Customer> cust){
@@ -256,7 +262,7 @@ int main(int argc, char* argv[]){
 	prettyPrintRes(res,customers);
 	//printMatrix(distanceMatrix,N);
 	bool foundImpr = false;
-	/*
+	
 	do{
 		for(int i = 1; i < N-1; i++){
 			for(int j = i+1; j < N; j++){
@@ -264,7 +270,7 @@ int main(int argc, char* argv[]){
 			}
 		}
 	}while(foundImpr);
-	*/
+	
     //display added customers;
 	/*
 	*/
