@@ -182,14 +182,11 @@ std::vector<int> copyVector(const std::vector<int> &original){
     printVector(original);
     */
 
-    return original;
+    return newVector;
 }
 
-//will take the split routes and find first correct route (due time and capacity of the customer)
-//!!!!!!!!!!!!!IMPORTANT THIS DOES NOT TAKE THE DATA FROM THE FILES!!!!!
-void repairSubRoutes(const std::vector<int> &route, const std::vector<Customer> &customers, const std::vector<std::vector<float>> &distanceMatrix)
+bool isRouteValid(const std::vector<int> &route, const std::vector<Customer> &customers, const std::vector<std::vector<float>> &distanceMatrix, int truckCapacity)
 {
-    int testTruckCapacity = 20;
     float currentTime = 0;
     int currentLoad = 0;
 
@@ -197,68 +194,70 @@ void repairSubRoutes(const std::vector<int> &route, const std::vector<Customer> 
         int from = route[i];
         int to = route[i + 1];
         float travelTime = distanceMatrix[from][to];
-        std::cout << "travel time:" << travelTime << "\n";
 
         currentTime += travelTime;
 
         if (currentTime > customers[to].dueTime) {
-            std::cout << "Cannot arrive in time to " << customers[to].id << "\n";
-            return;
+            return false;
         }
 
-        //waiting till window open
+        // Czekanie na otwarcie okna 
         if (currentTime < customers[to].readyTime)
             currentTime = customers[to].readyTime;
 
         currentTime += customers[to].serviceTime;
+        
+        
         currentLoad += customers[to].demand;
-
-        if (currentLoad > testTruckCapacity) {
-            std::cout << "TO: " <<  to;
-            std::cout << "Over truck capacity" << customers[to].id << "\n";
-            return;
+        if (currentLoad > truckCapacity) { 
+            std::cout << "Za duza pojemność u: " << customers[to].id << "\n";
+            return false;
         }
     }
 
-    std::cout << "Route correct!\n";
-    std::cout << "Time: " << currentTime;
-    std::cout << "Load: " << currentLoad;
+    std::cout << "Trasa poprawna! Czas: " << currentTime << ", Ładunek: " << currentLoad << "\n";
+    return true; // Trasa przeszła wszystkie testy
 }
 
 
+bool repairRoute(std::vector<int>& route, const std::vector<Customer> &customers, const std::vector<std::vector<float>> &distanceMatrix, int truckCapacity) {
+    
+    std::vector<int> originalRoute = route;
 
-
-void repairSolution(std::vector<int>& res, const std::vector<Customer>& customers, const std::vector<std::vector<float>>& distanceMatrix)
-{
-    //due time and capacity of the customer
-    std::vector<int> vectorCopy = copyVector(res);
-    std::vector<int> testVector = { 0, 3, 2, 1, 0}; //only for tests
-
-    std::vector<std::vector<int>> partialVector;
-    for(int i = 0; i< testVector.size(); i++){
-        if(testVector.at(i) == 0){
-            bool emptyVector = true; //makes sure no empty vector will be returned
-            partialVector.push_back(splitVector(testVector, i, emptyVector));
-            if(emptyVector == true){
-                partialVector.pop_back();
+    for (int i = 1; i < originalRoute.size() - 2; i++) {
+        for (int j = i + 1; j < originalRoute.size() - 1; j++) {
+            
+            std::vector<int> tryVector = originalRoute;
+            
+            //opt
+            int left = i;
+            int right = j;
+            
+            while (left < right) {
+                // podmianka elementów
+                int temp = tryVector[left];
+                tryVector[left] = tryVector[right];
+                tryVector[right] = temp;
+                
+                left++;
+                right--;
+            }
+            // C
+            if (isRouteValid(tryVector, customers, distanceMatrix, truckCapacity)) {
+                route = tryVector; 
+                return true;
             }
         }
     }
-        //YAP YAP YAP YAP YAP YAP YAP YAP YAP YAP YAP
-        //displaying splited vectors (test only)
-        for(int i=0; i< partialVector.size(); i++){
-            std::cout<<"Test vector: \n";
-            printVector(partialVector.at(i));  
-        }
-
-        for (int i = 0; i < partialVector.size(); i++) 
-            repairSubRoutes(partialVector.at(i), customers, distanceMatrix);
-    }
+    return false; 
+}
 
 std::vector<int> splitVector(const std::vector<int> &vector, int index, bool &emptyVector){
+
     std::vector<int> splitedVector;
     emptyVector = true;
     index++;
+
     splitedVector.push_back(0);
     while(index < vector.size() && vector.at(index) != 0){
             splitedVector.push_back(vector.at(index));
@@ -266,9 +265,52 @@ std::vector<int> splitVector(const std::vector<int> &vector, int index, bool &em
             index++;
         }
     splitedVector.push_back(0);
+
     return splitedVector;
+
 }
 
+void repairSolution(std::vector<int>& res, const std::vector<Customer>& customers, const std::vector<std::vector<float>>& distanceMatrix, int maxWeight)
+{
+    //std::vector<int> vectorCopy = copyVector(res);
+    std::vector<int> vectorCopyTest = {0,3,1,2,0};
+    std::vector<int> vectorCopy = vectorCopyTest;
+    std::vector<std::vector<int>> partialVector;
+    
+    //split res vector into sub-vectors (singluar routes)
+    for(int i = 0; i < vectorCopy.size(); i++){
+        if(vectorCopy.at(i) == 0){
+            bool emptyVector = true;
+            partialVector.push_back(splitVector(vectorCopy, i, emptyVector));
+            if(emptyVector == true){
+                partialVector.pop_back();
+            }
+        }
+    }
+    
+    //print seperate routes and check their 
+    for(int i=0; i < partialVector.size(); i++){
+        
+        std::cout << "\nTrasa " << (i+1) << ": ";
+        printVector(partialVector.at(i)); 
+
+        std::vector<int>& currentRoute = partialVector.at(i); 
+        if (isRouteValid(currentRoute, customers, distanceMatrix, maxWeight)) {
+            std::cout << "Trasa jest Poprawana.\n";
+        } else {
+            std::cout <<  "Trasa jest nieporarwna \n";
+            bool repaired = repairRoute(currentRoute, customers, distanceMatrix, maxWeight);
+            if (repaired) {
+                std::cout << "Naprawiona trasa: ";
+                printVector(currentRoute);
+            } else {
+                std::cout << "Nie naprawilo\n";
+            }
+        }
+    }
+    
+    // This does not make the soultion back together. Only prints sub-routes.
+}
 
 int main(int argc, char* argv[]){
     srand(time(NULL));
@@ -285,8 +327,10 @@ int main(int argc, char* argv[]){
     printMatrix(distanceMatrix,N);
     //std::cout << incidenceMatrix[0].size();
     std::cout << generateInitialSolution(customers,distanceMatrix,res,N,maxWeight)<< "\n";
+    std::cout << "Poczatowy wektor: \n";
     printVector(res);
-    repairSolution(res,customers,distanceMatrix);
+    std::cout << "Repair solution \n";
+    repairSolution(res,customers,distanceMatrix, maxWeight);
     //display added customers;
     /*for(int i=0; i<=N; i++){
         std::cout << customers.at(i).id << " ";
