@@ -28,19 +28,55 @@ struct Vehicle{
 //declaration of functions
 std::string formatData(const std::string& input);
 void readFile(const char* name, std::vector<Customer>& customers);
+std::vector<int> splitVector(const std::vector<int> &vector,int &index);
 
 
-
-void saveFile(int routeCount, double routeLength, std::vector<int> &route){
-	std::fstream endFile("result.txt");
-	if(endFile.is_open()){
-		endFile << routeCount << " " << routeLength << "\n";
-		for(int i = 0; i<= routeCount; i++){
-			//add all routes splitted from main route
-			//needs code from splitVector function
-		}
+template<typename T>
+void printVector(std::vector<T> M){
+	for( auto i : M){
+		std::cout << i << " ";
 	}
-	endFile.close();
+	std::cout << "\n";
+	return;
+}
+
+
+
+void saveFile(std::vector<int> &routesVector) {
+
+    std::ofstream endFile("result.txt");
+    if (!endFile.is_open()) return;
+
+    int routeIndex = 0;
+    int routeCount = 0;
+
+	//i believe routesLength and count will be passed seperately. ._.
+
+
+    while (routeIndex < routesVector.size()) {
+        std::vector<int> route = splitVector(routesVector, routeIndex);
+        if (!route.empty()) {
+            routeCount++;  // count routes
+            for (int v : route) {
+                endFile << v << " ";
+            }
+            endFile << "\n";
+        }
+        routeIndex++;  
+    }
+    endFile.close();
+}
+
+
+std::vector<int> splitVector(const std::vector<int> &vector, int &index) {
+
+    std::vector<int> splitedVector;
+
+    while (index < vector.size() && vector[index] != 0) {
+        splitedVector.push_back(vector[index]);
+        index++;
+    }
+    return splitedVector;
 }
 
 
@@ -58,11 +94,11 @@ void readFile(const char* name, std::vector<Customer>& customers, int &vehicleWe
 
             switch (lineCount)
             {
-            case 3: 
+            case 3:{
                 std::istringstream iss(line);
 				iss >> vehicleWeight;
-                break;
-            default:
+                break;}
+            default:{
                 if (lineCount >= 6) {
                     Customer customer;
                     std::istringstream iss(line);
@@ -70,7 +106,7 @@ void readFile(const char* name, std::vector<Customer>& customers, int &vehicleWe
                     customers.push_back(customer);
                 }
                 break;
-			}
+			}}
             lineCount++;
         }
 
@@ -101,15 +137,6 @@ void printMatrix(std::vector<std::vector<T>> M, int N){
 		}
 		std::cout << "\n";
 	}
-}
-
-template<typename T>
-void printVector(std::vector<T> M){
-	for( auto i : M){
-		std::cout << i << " ";
-	}
-	std::cout << "\n";
-	return;
 }
 
 template<typename T>
@@ -245,7 +272,9 @@ int main(int argc, char* argv[]){
 	/*
 	*/
 	std::cout << "\n";
-	saveFile();
+	//test values needs refinement
+	std::vector<int> testRes = {0,2,1,6,5,0,1,6,2,0};
+	saveFile(testRes);
     return 0;
 
 }
