@@ -30,50 +30,52 @@ std::string formatData(const std::string& input);
 void readFile(const char* name, std::vector<Customer>& customers);
 
 
-//Gets file given as an argument and processes data to relevant components.
-void readFile(const char* name, std::vector<Customer>& customers){
-    //std::cout << "Print Hello World\n";
+
+void saveFile(int routeCount, double routeLength, std::vector<int> &route){
+	std::fstream endFile("result.txt");
+	if(endFile.is_open()){
+		endFile << routeCount << " " << routeLength << "\n";
+		for(int i = 0; i<= routeCount; i++){
+			//add all routes splitted from main route
+			//needs code from splitVector function
+		}
+	}
+	endFile.close();
+}
+
+
+void readFile(const char* name, std::vector<Customer>& customers, int &vehicleWeight) {
     std::ifstream file(name);
-    if(file.is_open()){
+    if (file.is_open()) {
         std::string line;
         int lineCount = 0;
-            while(!file.eof()){
-                std::getline(file, line);
-                //count only important lines;
-                if(line.empty()){
-                    continue;
-                }else{
-                    line = formatData(line);
-                }
+        while (std::getline(file, line)) {
+            line = formatData(line);
 
-                switch (lineCount)
-                {
-                case 1: 
-                    /* set problem name varaible */
-                    break;
-                case 4: 
-                    //std::istringstream iss(line);
-                    // Then add K and Q to the vehicles.
-                    break;
-                default:
-                    if(lineCount >= 6){
-                        Customer customer;
-                       // std::cout << line << "\n";
-                        std::istringstream iss(line);  
-                        iss >> customer.id >> customer.x >> customer.y >> customer.demand >> customer.readyTime >> customer.dueTime >> customer.serviceTime;
-                        customers.push_back(customer);
-                    }
-                    break;
-                }
-                //get only clients' coordinates;
-                lineCount++;
+            if (line.empty()) {
+                continue;
             }
-    
-    }else{
-        std::cout << "File wasn't open";
-    }
-       file.close();
 
+            switch (lineCount)
+            {
+            case 3: 
+                std::istringstream iss(line);
+				iss >> vehicleWeight;
+                break;
+            default:
+                if (lineCount >= 6) {
+                    Customer customer;
+                    std::istringstream iss(line);
+                    iss >> customer.id >> customer.x >> customer.y >> customer.demand >> customer.readyTime >> customer.dueTime >> customer.serviceTime;
+                    customers.push_back(customer);
+                }
+                break;
+			}
+            lineCount++;
+        }
+
+    }
+	file.close();
 }
 
 
@@ -213,10 +215,10 @@ std::string formatData(const std::string& input){
 
 int main(int argc, char* argv[]){
     srand(time(NULL));
-    int maxWeight = 200,j;
+    int vehicleWeight = 0,j;
     std::vector<Customer> customers;
     //std::cout << argv[1];
-    readFile(argv[1], customers);
+    readFile(argv[1], customers, vehicleWeight);
     int N = customers.size();
     //std::cout << N << "\n";
     std::vector<int> res; res.push_back(0);
@@ -227,8 +229,8 @@ int main(int argc, char* argv[]){
     //std::cout << incidenceMatrix[0].size();
     
 
-	std::cout << generateInitialSolution(customers,distanceMatrix,res,N,maxWeight)<< "\n";
-    	printVector(res);
+	std::cout << generateInitialSolution(customers,distanceMatrix,res,N,vehicleWeight)<< "\n";
+    printVector(res);
 	bool foundImpr = false;
 	/*
 	do{
@@ -243,6 +245,7 @@ int main(int argc, char* argv[]){
 	/*
 	*/
 	std::cout << "\n";
+	saveFile();
     return 0;
 
 }
