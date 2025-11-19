@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-﻿#include <regex>
-=======
 #include <regex>
->>>>>>> solutionGeneration
 #include <iostream>
 #include <fstream>
 #include <vector>
@@ -31,7 +27,6 @@ struct Vehicle{
 
 //declaration of functions
 std::string formatData(const std::string& input);
-void readFile(const char* name, std::vector<Customer>& customers);
 std::vector<int> splitVector(const std::vector<int> &vector,int &index);
 
 
@@ -89,7 +84,7 @@ void readFile(const char* name, std::vector<Customer>& customers, int &vehicleWe
             {
             case 3:{
                 std::istringstream iss(line);
-				iss >> vehicleWeight;
+				iss >> vehicleWeight >> vehicleWeight;
                 break;}
             default:{
                 if (lineCount >= 6) {
@@ -127,9 +122,6 @@ int calculateDistance(int N,std::vector<std::vector<float>> &distanceM, std::vec
 	}
 	return 0;
 }
-template<typename T>
-void printMatrix(std::vector<std::vector<T>> M, int N){
-	for(int i = 0; i < N; i++){
 
 template<typename T>
 void printMatrix(std::vector<std::vector<T>> M, int N){
@@ -138,9 +130,6 @@ void printMatrix(std::vector<std::vector<T>> M, int N){
 	for(int i = 0; i < N ;i++)
 		std::cout << "\t" << i;
 	std::cout << "\n";
-	for(int i = 0; i < N; i++){
-		std::cout << i << "\t";
-	}
 }
 
 template<typename T>
@@ -149,25 +138,17 @@ T max(std::vector<T> V, int &k){
 	for(int i = 1; i < V.size(); i++){
 		if(V[i] > max){
 			k = i;
-	std::cout << std::setprecision(ss);
-	
+		}
+	}
 }
 
-template<typename T>
-void printVector(std::vector<T> M){
-	for( auto i : M){
-		std::cout << i << " ";
-	}
-	std::cout << "\n";
-	return;
-}
 
 template<typename T>
 T max(std::vector<T> V){
 	T max = V[0];
 	for(int i = 1; i < V.size(); i++){
 		if(V[i] > max){
->>>>>>> solutionGeneration
+
 			max = V[i];
 		}
 	}
@@ -203,7 +184,6 @@ void makeRCL(std::vector<int> &rcl, std::vector<Customer> customers, std::vector
 
 
 float generateInitialSolution(std::vector<Customer> customers, std::vector<std::vector<float>> distanceMatrix, std::vector<int> &res, int N, int maxWeight){
-	//std::cout << N << "\n";
 	
 	int curWeight = maxWeight;
 	std::vector<bool> visited(N,false);
@@ -218,7 +198,6 @@ float generateInitialSolution(std::vector<Customer> customers, std::vector<std::
 	curWeight -= customers[RCL[i]].demand; currentTruckTime = distanceMatrix[0][RCL[i]];
 	if(currentTruckTime < customers[RCL[i]].readyTime) currentTruckTime = customers[RCL[i]].readyTime;
 	currentTruckTime += customers[RCL[i]].serviceTime;
-	
 	while( visitedCount < N-1){
 		RCL.clear();
 		makeRCL(RCL,customers,distanceMatrix,visited,currentTruckTime,res.back(),N,rclSize);
@@ -262,6 +241,16 @@ void prettyPrintRes(std::vector<int> res, std::vector<Customer> cust){
 std::string formatData(const std::string& input){
     return std::regex_replace(input, std::regex(" {2,}"), " ");
     
+}
+std::vector<int> splitVector(const std::vector<int> &vector, int &index) {
+    std::vector<int> splitedVector;
+    while (index < vector.size() && vector[index] != 0) {
+        splitedVector.push_back(vector[index]);
+        index++;
+    }
+    return splitedVector;
+
+
 }
 
 float countTime(std::vector<int> res, std::vector<Customer> customers, std::vector<std::vector<float>> distanceMatrix){
@@ -331,22 +320,20 @@ int main(int argc, char* argv[]){
     int maxWeight = 200,j;
     std::vector<Customer> customers;
     //std::cout << argv[1];
-    readFile(argv[1], customers);
-    int N = customers.size();
+    readFile(argv[1], customers, maxWeight);
+    int N = customers.size(), truckCount;
     //std::cout << N << "\n";
     std::vector<int> bestRoute,tmpRoute, bestBestRoute; bestRoute.push_back(0);
     std::vector<std::vector<float>> distanceMatrix(N,std::vector<float>(N,0));
     float bestDistance, bestbestDistance;
     calculateDistance(N,distanceMatrix,customers);
     //printMatrix(distanceMatrix,N);
-    //std::cout << incidenceMatrix[0].size();
+    //std::cout << incidenceMatrix[0].size
 	while(true){
 		N = customers.size();
 		bestRoute.clear();
 		tmpRoute.clear();
-		std::cout << "aaa" << std::flush;
     	bestDistance = generateInitialSolution(customers,distanceMatrix,bestRoute,N,maxWeight);
-	std::cout << "\n";
     	//printVector(bestRoute);
 	bool foundImpr = false;
 	tmpRoute = bestRoute;
