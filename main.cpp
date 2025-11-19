@@ -1,4 +1,4 @@
-#include <regex>
+﻿#include <regex>
 #include <iostream>
 #include <fstream>
 #include <vector>
@@ -9,6 +9,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <iomanip>
+#include<chrono>
 //declaration of structures
 struct Customer{
     int id;
@@ -41,7 +42,7 @@ void printVector(std::vector<T> M){
 
 
 
-void saveFile(std::vector<int> &routesVector) {
+void saveFile(std::vector<int> &routesVector, float distance) {
 
     std::ofstream endFile("result.txt");
     if (!endFile.is_open()) return;
@@ -51,18 +52,24 @@ void saveFile(std::vector<int> &routesVector) {
 
 	//i believe routesLength and count will be passed seperately. ._.
 
-
+	std::vector<std::vector<int>> route;
     while (routeIndex < routesVector.size()) {
-        std::vector<int> route = splitVector(routesVector, routeIndex);
+        route.push_back(splitVector(routesVector, routeIndex));
         if (!route.empty()) {
             routeCount++;  // count routes
-            for (int v : route) {
-                endFile << v << " ";
-            }
-            endFile << "\n";
         }
         routeIndex++;  
     }
+
+	endFile << routeCount << " " << distance << " \n";
+
+	for (int i = 0; i < route.size(); i++) {
+				for(int v : route.at(i)){
+					endFile << v << " ";
+				}
+            endFile << "\n";
+			}
+            
     endFile.close();
 }
 
@@ -84,12 +91,13 @@ void readFile(const char* name, std::vector<Customer>& customers, int &vehicleWe
             {
             case 3:{
                 std::istringstream iss(line);
-				iss >> vehicleWeight >> vehicleWeight;
+				iss >> vehicleWeight;
                 break;}
             default:{
                 if (lineCount >= 6) {
                     Customer customer;
                     std::istringstream iss(line);
+					std::cout << "LIne: " << line;
                     iss >> customer.id >> customer.x >> customer.y >> customer.demand >> customer.readyTime >> customer.dueTime >> customer.serviceTime;
                     customers.push_back(customer);
                 }
@@ -183,7 +191,7 @@ void makeRCL(std::vector<int> &rcl, std::vector<Customer> customers, std::vector
 }
 
 
-float generateInitialSolution(std::vector<Customer> customers, std::vector<std::vector<float>> distanceMatrix, std::vector<int> &res, int N, int maxWeight){
+float generateInitialSolution(std::vector<Customer> customers, std::vector<std::vector<float>> distanceMatrix, std::vector<int> &res, int N, int maxWeight){	
 	res.push_back(0);
 	int curWeight = maxWeight;
 	std::vector<bool> visited(N,false);
@@ -318,7 +326,10 @@ bool isRouteValid(const std::vector<int> &route, const std::vector<Customer> &cu
 }
 
 int main(int argc, char* argv[]){
-    srand(time(NULL));
+	srand(time(NULL));
+	using clock = std::chrono::steady_clock;
+	auto start = clock::now();
+	
     int maxWeight = 200;
     std::vector<Customer> customers;
     //std::cout << argv[1];
@@ -327,7 +338,7 @@ int main(int argc, char* argv[]){
     //std::cout << N << "\n";
     std::vector<int> bestRoute,tmpRoute, bestBestRoute;
     std::vector<std::vector<float>> distanceMatrix(N,std::vector<float>(N,0));
-    float bestDistance, bestbestDistance;
+    float bestDistance = 0, bestbestDistance = 30000;
     calculateDistance(N,distanceMatrix,customers);
     //printMatrix(distanceMatrix,N);
     //std::cout << incidenceMatrix[0].size
@@ -375,12 +386,20 @@ int main(int argc, char* argv[]){
 		if(bestRoute[i] == 0) truckCount++;
 	}
     	std::cout << bestDistance << " " << truckCount <<"\n";
+	//printVector(bestRoute);
+	//prettyPrintRes(bestRoute,customers);
+    //display added customers
+	if(bestDistance < bestbestDistance){
 	bestbestDistance = bestDistance;
 	bestBestRoute = bestRoute;
-	}
-	/*
-	*/
 
+	}
+	auto now = clock::now();
+	if(now - start >= std::chrono::minutes(1)){
+		break;
+	}
+	}
+	saveFile(bestBestRoute, bestbestDistance);
     return 0;
 
 }
