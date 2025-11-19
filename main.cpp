@@ -28,7 +28,7 @@ struct Vehicle{
 
 //declaration of functions
 std::string formatData(const std::string& input);
-std::vector<int> splitVector(const std::vector<int> &vector,int &index);
+std::vector<int> splitVector(std::vector<int> vector,int index);
 
 
 template<typename T>
@@ -48,13 +48,14 @@ void saveFile(std::vector<int> &routesVector, float distance) {
     if (!endFile.is_open()) return;
 
     int routeIndex = 0;
-    int routeCount = 0;
+    int routeCount = -1;
 
 	//i believe routesLength and count will be passed seperately. ._.
 
 	std::vector<std::vector<int>> route;
     while (routeIndex < routesVector.size()) {
         route.push_back(splitVector(routesVector, routeIndex));
+		routeIndex += route[routeCount+1].size();
         if (!route.empty()) {
             routeCount++;  // count routes
         }
@@ -81,20 +82,19 @@ void readFile(const char* name, std::vector<Customer>& customers, int &vehicleWe
         std::string line;
         int lineCount = 0;
         while (std::getline(file, line)) {
-            line = formatData(line);
 
-            if (line.empty()) {
+            line = formatData(line);
+			if (line.empty()) {
                 continue;
             }
-
             switch (lineCount)
             {
             case 3:{
                 std::istringstream iss(line);
-				iss >> vehicleWeight;
+				iss >> vehicleWeight >>vehicleWeight;
                 break;}
             default:{
-                if (lineCount >= 6) {
+                if (lineCount >= 7) {
                     Customer customer;
                     std::istringstream iss(line);
                     iss >> customer.id >> customer.x >> customer.y >> customer.demand >> customer.readyTime >> customer.dueTime >> customer.serviceTime;
@@ -181,12 +181,10 @@ float generateInitialSolution(std::vector<Customer> customers, std::vector<std::
 		float arriveTime = currentTruckTime + distanceMatrix[res.back()][RCL[i]];
 		if(arriveTime > customers[RCL[i]].dueTime && checkedRCL < rclSize){checkedRCL++; continue;}
 		if(curWeight - customers[RCL[i]].demand < 0 || checkedRCL >= rclSize){
-			if(res.back() == 0) break;
 			curWeight = maxWeight; checkedRCL = 0;
 			totalTime += currentTruckTime + distanceMatrix[res.back()][0];
 			res.push_back(0);
 			currentTruckTime = 0;
-			printVector(res);
 			continue;
 		}
 		checkedRCL = 0;
@@ -216,9 +214,10 @@ std::string formatData(const std::string& input){
     return std::regex_replace(input, std::regex(" {2,}"), " ");
     
 }
-std::vector<int> splitVector(const std::vector<int> &vector, int &index) {
+std::vector<int> splitVector(std::vector<int> vector, int index) {
     std::vector<int> splitedVector;
     while (index < vector.size() && vector[index] != 0) {
+		
         splitedVector.push_back(vector[index]);
         index++;
     }
@@ -258,19 +257,18 @@ bool isRouteValid(const std::vector<int> &route, const std::vector<Customer> &cu
     float totalTime = 0;
     float currentTime = 0;
     int currentLoad = 0;
-
-    for (int i = 0; i < route.size() - 1; i++) {
+	for (int i = 0; i < route.size() -1 ; i++) {
+		
         int from = route[i];
         int to = route[i + 1];
         float travelTime = distanceMatrix[from][to];
-
         currentTime += travelTime;
-	if(to == 0){
-		totalTime += currentTime;
-		currentLoad = 0;
-		currentTime = 0;
-		continue;
-	}
+		if(to == 0){
+			totalTime += currentTime;
+			currentLoad = 0;
+			currentTime = 0;
+			continue;
+		}
         if (currentTime > customers[to].dueTime) {
             return false;
         }
@@ -289,6 +287,16 @@ bool isRouteValid(const std::vector<int> &route, const std::vector<Customer> &cu
     }
 
     return true; // Trasa przeszła wszystkie testy
+}
+void sortByDueTime(std::vector<int> &res, std::vector<Customer> customers){
+	int N = res.size();
+	for(int i = 0; i < N -1; i++){
+		int minDueTime = customers[0].dueTime, minDueTimeI = i;
+		for(int j = i; j < N; j++){
+			if(customers[res[j]].dueTime < minDueTime) {minDueTime = customers[res[j]].dueTime; minDueTimeI = j;}
+		}
+		std::swap(res[minDueTimeI],res[i]);
+	}
 }
 
 int main(int argc, char* argv[]){
@@ -309,36 +317,46 @@ int main(int argc, char* argv[]){
 		N = customers.size();
 		bestRoute.clear();
 		tmpRoute.clear();
-		std::cout << "generating solution\n";
+
 		bestDistance = generateInitialSolution(customers,distanceMatrix,bestRoute,N,maxWeight);
-		std::cout << "generated solution";
 		bool foundImpr = false;
 		tmpRoute = bestRoute;
 		N = bestRoute.size();
 		for(int i = 0; i<N-1;i++){
 			if(bestRoute[i] == 0) truckCount++;
 		}
-		std::cout << bestDistance << " " << truckCount << "\t" << std::flush;
 		//merge
-		int i=0,k=1,j=1;
-		while(i < N-1){
-			while(bestRoute[k++]!= 0);
-			while(j < N-2){
-				while(bestRoute[j++] != 0);
+		int i=0,k,j=1,l=j+1;
+		while(i < bestRoute.size() -2){
+			k = i+1;
+			while( k < bestRoute.size() -1 && bestRoute[k]!= 0) k++;
+			while(j < bestRoute.size() -2){
+				while( j< bestRoute.size() -2 && bestRoute[j] != 0) j++;
+				l=j+1;
+				while(l < bestRoute.size() -1 && bestRoute[l] != 0) l++;
 				float savings = distanceMatrix[bestRoute[k-1]][0] + distanceMatrix[bestRoute[j+1]][0] - distanceMatrix[bestRoute[k-1]][bestRoute[j+1]];
 				if(savings > 0){
-					std::vector<int> r1 = splitVector(bestRoute,i),r2 = splitVector(bestRoute,j);
+					std::vector<int> r1 = splitVector(bestRoute,i+1),r2 = splitVector(bestRoute,j+1);
 					r1.insert(r1.end(),r2.begin(),r2.end());
-					printVector(r1);
-					if(isRouteValid(r1,customers,distanceMatrix,maxWeight)){
-						bestRoute.erase(bestRoute.begin()+j);
+					sortByDueTime(r1,customers);
+					r2 = {0}; r2.insert(r2.end(),r1.begin(),r1.end());
+					r2.push_back(0);
+					if(isRouteValid(r2,customers,distanceMatrix,maxWeight)){
+						r2.erase(r2.begin());
+						bestRoute.erase(bestRoute.begin()+i+1,bestRoute.begin()+k+1);
+						bestRoute.erase(bestRoute.begin()+j-k+i+1,bestRoute.begin()+l-k+i+1);
+						bestRoute.insert(bestRoute.end(),r2.begin(),r2.end());
+						k = i+1;
+						while( k < bestRoute.size() -1 && bestRoute[k]!= 0) k++;
 					}
 				}
+				j= l+1;
 			}
-			i=j+1;
+			i=k;
 		}
+		N = bestRoute.size();
 		//2opt
-		/*do{
+		do{
 			foundImpr = false;
 			for(int i = 1; i < N-2; i++){
 				if(tmpRoute[i] == 0) continue;
@@ -358,23 +376,24 @@ int main(int argc, char* argv[]){
 					}
 				}	
 				auto now = clock::now();
-				if(now - start >= std::chrono::minutes(1)){
+				if(now - start >= std::chrono::minutes(5)){
 					if(bestDistance < bestbestDistance){
 						bestbestDistance = bestDistance;
 						bestBestRoute = bestRoute;
 					}
+					printVector(bestBestRoute);
 					saveFile(bestBestRoute, bestbestDistance);
 					return 0;
 				}
 			}
-		std::cout << bestDistance << " " << truckCount <<"\n";
 		if(bestDistance < bestbestDistance){
 			bestbestDistance = bestDistance;
 			bestBestRoute = bestRoute;
 		}
 		}while(foundImpr);
-			truckCount = 0;
-			for(int i = 0; i<N-1;i++){
+		
+		truckCount = 0;
+		for(int i = 0; i<N-1;i++){
 			if(bestRoute[i] == 0) truckCount++;
 		};
 		if(bestDistance < bestbestDistance){
@@ -382,10 +401,12 @@ int main(int argc, char* argv[]){
 			bestBestRoute = bestRoute;
 		}
 		auto now = clock::now();
-		if(now - start >= std::chrono::minutes(1)){
-			break;
-		}*/
+		if(now - start >= std::chrono::minutes(5)){
+			//break;
+		}
+		
 	}
+	printVector(bestBestRoute);
 	saveFile(bestBestRoute, bestbestDistance);
     return 0;
 
