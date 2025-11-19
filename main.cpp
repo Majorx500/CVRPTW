@@ -19,6 +19,7 @@ struct Customer{
     int readyTime;
     int dueTime;
     int serviceTime;
+	
 };
 
 struct Vehicle{
@@ -31,6 +32,16 @@ std::string formatData(const std::string& input);
 std::vector<int> splitVector(const std::vector<int> &vector,int &index);
 
 
+std::ostream& operator<<(std::ostream& os, const Customer& c)
+{
+    os << "Customer(" << c.id
+       << ", d=" << c.demand
+       << ", x=" << c.x
+       << ", y=" << c.y
+       << ")";
+    return os;
+}
+
 template<typename T>
 void printVector(std::vector<T> M){
 	for( auto i : M){
@@ -40,12 +51,37 @@ void printVector(std::vector<T> M){
 	return;
 }
 
+bool solutionCorrectnessCheck(std::vector<Customer> &customers, std::vector<std::vector<float>> &distanceMatrix) {
+    int depot = 0;
+
+    for(int i = 1; i < customers.size(); i++) {
+        float arrival = distanceMatrix[depot][i];
+        float startService = std::max(arrival, (float)customers[i].readyTime);
+        float finishService = startService + customers[i].serviceTime;
+        float backToDepot = finishService + distanceMatrix[i][depot];
+
+        if(finishService > customers[i].dueTime || backToDepot > customers[depot].dueTime) {
+            std::cout << "Customer " << customers[i].id << " is infeasible.\n";
+            return false;
+        }
+    }
+
+    return true;
+}
+
 
 
 void saveFile(std::vector<int> &routesVector, float distance) {
 
     std::ofstream endFile("result.txt");
     if (!endFile.is_open()) return;
+	//close if result unachiveable
+	if (distance == -1){
+		endFile << distance;
+		endFile.close();
+		exit(0);
+	}
+
 
     int routeIndex = 0;
     int routeCount = 0;
@@ -91,7 +127,7 @@ void readFile(const char* name, std::vector<Customer>& customers, int &vehicleWe
             {
             case 3:{
                 std::istringstream iss(line);
-				iss >> vehicleWeight;
+				iss >> vehicleWeight >> vehicleWeight;
                 break;}
             default:{
                 if (lineCount >= 6) {
@@ -339,6 +375,13 @@ int main(int argc, char* argv[]){
     std::vector<std::vector<float>> distanceMatrix(N,std::vector<float>(N,0));
     float bestDistance = 0, bestbestDistance = 30000;
     calculateDistance(N,distanceMatrix,customers);
+
+	bool ok = solutionCorrectnessCheck(customers, distanceMatrix);
+	if(!ok){
+		saveFile(bestRoute, -1);
+	}
+
+
     //printMatrix(distanceMatrix,N);
     //std::cout << incidenceMatrix[0].size
 	while(true){
@@ -386,7 +429,8 @@ int main(int argc, char* argv[]){
     	for(int i = 0; i<N-1;i++){
 		if(bestRoute[i] == 0) truckCount++;
 	}
-    	std::cout << bestDistance << " " << truckCount <<"\n";
+    
+	std::cout << bestDistance << " " << truckCount <<"\n";
 	//printVector(bestRoute);
 	//prettyPrintRes(bestRoute,customers);
     //display added customers
@@ -396,7 +440,7 @@ int main(int argc, char* argv[]){
 
 	}
 	auto now = clock::now();
-	if(now - start >= std::chrono::seconds(270)){
+	if(now - start >= std::chrono::seconds(60)){
 		break;
 	}
 	}
