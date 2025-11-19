@@ -97,7 +97,6 @@ void readFile(const char* name, std::vector<Customer>& customers, int &vehicleWe
                 if (lineCount >= 6) {
                     Customer customer;
                     std::istringstream iss(line);
-					std::cout << "LIne: " << line;
                     iss >> customer.id >> customer.x >> customer.y >> customer.demand >> customer.readyTime >> customer.dueTime >> customer.serviceTime;
                     customers.push_back(customer);
                 }
@@ -195,7 +194,7 @@ float generateInitialSolution(std::vector<Customer> customers, std::vector<std::
 	res.push_back(0);
 	int curWeight = maxWeight;
 	std::vector<bool> visited(N,false);
-	int visitedCount = 1, i,rclSize = 20, checkedRCL = 0;
+	int visitedCount = 1, i,rclSize = 10, checkedRCL = 0;
 	float totalTime = 0, currentTruckTime = 0;
 	std::vector<int> RCL;
 	//Construct RCL
@@ -347,18 +346,20 @@ int main(int argc, char* argv[]){
 		N = customers.size();
 		bestRoute.clear();
 		tmpRoute.clear();
-    	generateInitialSolution(customers,distanceMatrix,bestRoute,N,maxWeight);
+	std::cout << "generating solution\n";
+    	bestDistance = generateInitialSolution(customers,distanceMatrix,bestRoute,N,maxWeight);
+	std::cout << "generated solution\n";
     	//printVector(bestRoute);
 	bool foundImpr = false;
 	tmpRoute = bestRoute;
 	N = bestRoute.size();
-	bestDistance = countDistance(bestRoute,customers,distanceMatrix);
+	std::cout << N << "\n";
 	for(int i = 0; i<N-1;i++){
 		if(bestRoute[i] == 0) truckCount++;
 	}
-	std::cout << bestDistance << " " << truckCount << "\t";
+	std::cout << bestDistance << " " << truckCount << "\t" << std::flush;
 	//merge
-		
+	
 	//2opt
 	do{
 		foundImpr = false;
@@ -395,7 +396,7 @@ int main(int argc, char* argv[]){
 
 	}
 	auto now = clock::now();
-	if(now - start >= std::chrono::minutes(1)){
+	if(now - start >= std::chrono::seconds(270)){
 		break;
 	}
 	}
