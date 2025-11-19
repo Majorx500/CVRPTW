@@ -184,7 +184,7 @@ void makeRCL(std::vector<int> &rcl, std::vector<Customer> customers, std::vector
 
 
 float generateInitialSolution(std::vector<Customer> customers, std::vector<std::vector<float>> distanceMatrix, std::vector<int> &res, int N, int maxWeight){
-	
+	res.push_back(0);
 	int curWeight = maxWeight;
 	std::vector<bool> visited(N,false);
 	int visitedCount = 1, i,rclSize = 20, checkedRCL = 0;
@@ -253,7 +253,7 @@ std::vector<int> splitVector(const std::vector<int> &vector, int &index) {
 
 }
 
-float countTime(std::vector<int> res, std::vector<Customer> customers, std::vector<std::vector<float>> distanceMatrix){
+float countDistance(std::vector<int> res, std::vector<Customer> customers, std::vector<std::vector<float>> distanceMatrix){
 	float time = 0,truckTime=0;
 	int N = res.size();
 	for(int i = 1; i < N; i++){
@@ -268,6 +268,8 @@ float countTime(std::vector<int> res, std::vector<Customer> customers, std::vect
 	return time;
 
 }
+
+
 
 void swapEdges(std::vector<int> &res,int i, int j){
 	i+=1;
@@ -317,30 +319,35 @@ bool isRouteValid(const std::vector<int> &route, const std::vector<Customer> &cu
 
 int main(int argc, char* argv[]){
     srand(time(NULL));
-    int maxWeight = 200,j;
+    int maxWeight = 200;
     std::vector<Customer> customers;
     //std::cout << argv[1];
     readFile(argv[1], customers, maxWeight);
-    int N = customers.size(), truckCount;
+    int N = customers.size(), truckCount = 0, bestTruckCount = N;
     //std::cout << N << "\n";
-    std::vector<int> bestRoute,tmpRoute, bestBestRoute; bestRoute.push_back(0);
+    std::vector<int> bestRoute,tmpRoute, bestBestRoute;
     std::vector<std::vector<float>> distanceMatrix(N,std::vector<float>(N,0));
     float bestDistance, bestbestDistance;
     calculateDistance(N,distanceMatrix,customers);
     //printMatrix(distanceMatrix,N);
     //std::cout << incidenceMatrix[0].size
 	while(true){
+		truckCount = 0;
 		N = customers.size();
 		bestRoute.clear();
 		tmpRoute.clear();
-    	bestDistance = generateInitialSolution(customers,distanceMatrix,bestRoute,N,maxWeight);
+    	generateInitialSolution(customers,distanceMatrix,bestRoute,N,maxWeight);
     	//printVector(bestRoute);
 	bool foundImpr = false;
 	tmpRoute = bestRoute;
 	N = bestRoute.size();
-	std::cout << bestDistance << "\t";
+	bestDistance = countDistance(bestRoute,customers,distanceMatrix);
+	for(int i = 0; i<N-1;i++){
+		if(bestRoute[i] == 0) truckCount++;
+	}
+	std::cout << bestDistance << " " << truckCount << "\t";
 	//merge
-	
+		
 	//2opt
 	do{
 		foundImpr = false;
@@ -352,7 +359,7 @@ int main(int argc, char* argv[]){
 				swapEdges(tmpRoute,i,j);
 				bool valid =  isRouteValid(tmpRoute,customers,distanceMatrix,maxWeight);
 				if(dL < 0 && valid){
-					float tmpDistance = countTime(tmpRoute,customers,distanceMatrix);
+					float tmpDistance = countDistance(tmpRoute,customers,distanceMatrix);
 					if(tmpDistance >= bestDistance) continue;
 					foundImpr = true;
 					bestRoute = tmpRoute;
@@ -363,10 +370,11 @@ int main(int argc, char* argv[]){
 			}	
 		}
 	}while(foundImpr);
-	//printVector(bestRoute);
-	//prettyPrintRes(bestRoute,customers);
-    //display added customers;
-    	std::cout << bestDistance << "\n";
+    	truckCount = 0;
+    	for(int i = 0; i<N-1;i++){
+		if(bestRoute[i] == 0) truckCount++;
+	}
+    	std::cout << bestDistance << " " << truckCount <<"\n";
 	bestbestDistance = bestDistance;
 	bestBestRoute = bestRoute;
 	}
