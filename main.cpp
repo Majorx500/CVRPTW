@@ -42,10 +42,11 @@ void printVector(std::vector<T> M){
 
 
 
-void saveFile(std::vector<int> &routesVector, float distance) {
+void saveFile(std::vector<int> &routesVector, long double distance) {
 
     std::ofstream endFile("result.txt");
     if (!endFile.is_open()) return;
+	endFile << std::fixed <<  std::setprecision(5);
 
     int routeIndex = 0;
     int routeCount = -1;
@@ -115,7 +116,7 @@ void readFile(const char* name, std::vector<Customer>& customers, int &vehicleWe
 }
 
 
-int calculateDistance(int N,std::vector<std::vector<float>> &distanceM, std::vector<Customer> customers){
+int calculateDistance(int N,std::vector<std::vector<long double>> &distanceM, std::vector<Customer> customers){
 	int dx,dy;
 	for(int i = 0; i < N; i++){
 		for(int j = 0; j < N; j++){
@@ -139,14 +140,14 @@ void printMatrix(std::vector<std::vector<T>> M, int N){
 	std::cout << "\n";
 }
 
-void makeRCL(std::vector<int> &rcl, std::vector<Customer> customers, std::vector<std::vector<float>> distanceMatrix,std::vector<bool> visited, float truckTime, int l,int N, int listSize){
+void makeRCL(std::vector<int> &rcl, std::vector<Customer> customers, std::vector<std::vector<long double>> distanceMatrix,std::vector<bool> visited, long double truckTime, int l,int N, int listSize){
 	//ReadyTime - Distance
 	std::vector<bool> added(N,false);	
 	for(int k = 0; k < listSize; k++){
-		float minX = customers[0].dueTime;
+		long double minX = customers[0].dueTime;
 		int minI = 0;
 		for(int i = 1; i < N; i++){
-			float X =customers[i].readyTime - distanceMatrix[l][i];
+			long double X = distanceMatrix[l][i];
 			if(visited[i] || added[i] || X >= minX) continue;
 			minX = X; minI = i;
 		}
@@ -158,12 +159,12 @@ void makeRCL(std::vector<int> &rcl, std::vector<Customer> customers, std::vector
 }
 
 
-float generateInitialSolution(std::vector<Customer> customers, std::vector<std::vector<float>> distanceMatrix, std::vector<int> &res, int N, int maxWeight){	
+long double generateInitialSolution(std::vector<Customer> customers, std::vector<std::vector<long double>> distanceMatrix, std::vector<int> &res, int N, int maxWeight){	
 	res.push_back(0);
 	int curWeight = maxWeight;
 	std::vector<bool> visited(N,false);
 	int visitedCount = 1, i,rclSize = 20, checkedRCL = 0;
-	float totalTime = 0, currentTruckTime = 0;
+	long double totalTime = 0, currentTruckTime = 0;
 	std::vector<int> RCL;
 	//Construct RCL
 	makeRCL(RCL,customers,distanceMatrix,visited,currentTruckTime,0,N,rclSize);
@@ -178,7 +179,7 @@ float generateInitialSolution(std::vector<Customer> customers, std::vector<std::
 		makeRCL(RCL,customers,distanceMatrix,visited,currentTruckTime,res.back(),N,rclSize);
 		if(RCL.size() == 0) break;
 		i = rand()%RCL.size();
-		float arriveTime = currentTruckTime + distanceMatrix[res.back()][RCL[i]];
+		long double arriveTime = currentTruckTime + distanceMatrix[res.back()][RCL[i]];
 		if(arriveTime > customers[RCL[i]].dueTime && checkedRCL < rclSize){checkedRCL++; continue;}
 		if(curWeight - customers[RCL[i]].demand < 0 || checkedRCL >= rclSize){
 			curWeight = maxWeight; checkedRCL = 0;
@@ -226,8 +227,8 @@ std::vector<int> splitVector(std::vector<int> vector, int index) {
 
 }
 
-float countDistance(std::vector<int> res, std::vector<Customer> customers, std::vector<std::vector<float>> distanceMatrix){
-	float time = 0,truckTime=0;
+long double countDistance(std::vector<int> res, std::vector<Customer> customers, std::vector<std::vector<long double>> distanceMatrix){
+	long double time = 0,truckTime=0;
 	int N = res.size();
 	for(int i = 1; i < N; i++){
 		truckTime += distanceMatrix[res[i-1]][res[i]];
@@ -252,16 +253,16 @@ void swapEdges(std::vector<int> &res,int i, int j){
 	}
 }
 
-bool isRouteValid(const std::vector<int> &route, const std::vector<Customer> &customers, const std::vector<std::vector<float>> &distanceMatrix, int truckCapacity)
+bool isRouteValid(const std::vector<int> &route, const std::vector<Customer> &customers, const std::vector<std::vector<long double>> &distanceMatrix, int truckCapacity)
 {
-    float totalTime = 0;
-    float currentTime = 0;
+    long double totalTime = 0;
+    long double currentTime = 0;
     int currentLoad = 0;
 	for (int i = 0; i < route.size() -1 ; i++) {
 		
         int from = route[i];
         int to = route[i + 1];
-        float travelTime = distanceMatrix[from][to];
+        long double travelTime = distanceMatrix[from][to];
         currentTime += travelTime;
 		if(to == 0){
 			totalTime += currentTime;
@@ -309,25 +310,15 @@ int main(int argc, char* argv[]){
     readFile(argv[1], customers, maxWeight);
     int N = customers.size(), truckCount = 0, bestTruckCount = N;
     std::vector<int> bestRoute,tmpRoute, bestBestRoute;
-    std::vector<std::vector<float>> distanceMatrix(N,std::vector<float>(N,0));
-    float bestDistance = 0, bestbestDistance = (unsigned int) -1;
+    std::vector<std::vector<long double>> distanceMatrix(N,std::vector<long double>(N,0));
+    long double bestDistance = 0, bestbestDistance = (unsigned int) -1;
     calculateDistance(N,distanceMatrix,customers);
-	std::vector<int> RCL;
-	std::vector<bool> visited(N,false);
-	//Construct RCL
-	makeRCL(RCL,customers,distanceMatrix,visited,0,0,N,20);	
-	//printVector(RCL);
-	std::cout << customers[175].readyTime << "\n";
-	
-	
 	while(true){
 		truckCount = 0;
 		N = customers.size();
 		bestRoute.clear();
 		tmpRoute.clear();
-
 		bestDistance = generateInitialSolution(customers,distanceMatrix,bestRoute,N,maxWeight);
-		//printVector(bestRoute);
 		bool foundImpr = false;
 		tmpRoute = bestRoute;
 		N = bestRoute.size();
@@ -344,7 +335,7 @@ int main(int argc, char* argv[]){
 				while( j< bestRoute.size() -2 && bestRoute[j] != 0) j++;
 				l=j+1;
 				while(l < bestRoute.size() -1 && bestRoute[l] != 0) l++;
-				float savings = distanceMatrix[bestRoute[k-1]][0] + distanceMatrix[bestRoute[j+1]][0] - distanceMatrix[bestRoute[k-1]][bestRoute[j+1]];
+				long double savings = distanceMatrix[bestRoute[k-1]][0] + distanceMatrix[bestRoute[j+1]][0] - distanceMatrix[bestRoute[k-1]][bestRoute[j+1]];
 				if(savings > 0){
 					std::vector<int> r1 = splitVector(bestRoute,i+1),r2 = splitVector(bestRoute,j+1);
 					r1.insert(r1.end(),r2.begin(),r2.end());
@@ -365,7 +356,6 @@ int main(int argc, char* argv[]){
 			i=k;
 		}
 		
-		//std::cout << isRouteValid(bestRoute,customers,distanceMatrix,maxWeight) << "\n";
 		N = bestRoute.size();
 		//2opt
 		do{
@@ -374,11 +364,11 @@ int main(int argc, char* argv[]){
 				if(tmpRoute[i] == 0) continue;
 				for(int j = i+1; j < N-1; j++){
 					if(tmpRoute[j] == 0) continue;
-					float dL = - distanceMatrix[tmpRoute[i]][tmpRoute[i+1]] - distanceMatrix[tmpRoute[j]][tmpRoute[j+1]] + distanceMatrix[tmpRoute[i+1]][tmpRoute[j+1]] + distanceMatrix[tmpRoute[i]][tmpRoute[j]];	
+					long double dL = - distanceMatrix[tmpRoute[i]][tmpRoute[i+1]] - distanceMatrix[tmpRoute[j]][tmpRoute[j+1]] + distanceMatrix[tmpRoute[i+1]][tmpRoute[j+1]] + distanceMatrix[tmpRoute[i]][tmpRoute[j]];	
 					swapEdges(tmpRoute,i,j);
 					bool valid =  isRouteValid(tmpRoute,customers,distanceMatrix,maxWeight);
 					if(dL < 0 && valid){
-						float tmpDistance = countDistance(tmpRoute,customers,distanceMatrix);
+						long double tmpDistance = countDistance(tmpRoute,customers,distanceMatrix);
 						if(tmpDistance >= bestDistance) continue;
 						foundImpr = true;
 						bestRoute = tmpRoute;
@@ -394,7 +384,8 @@ int main(int argc, char* argv[]){
 						bestBestRoute = bestRoute;
 					}
 					std::cout << isRouteValid(bestBestRoute,customers,distanceMatrix,maxWeight) << "\n";
-					printVector(bestBestRoute);
+					//printVector(bestBestRoute);
+					//std::cout << bestbestDistance;
 					saveFile(bestBestRoute, bestbestDistance);
 					return 0;
 				}
