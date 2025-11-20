@@ -146,7 +146,7 @@ void makeRCL(std::vector<int> &rcl, std::vector<Customer> customers, std::vector
 		float minX = customers[0].dueTime;
 		int minI = 0;
 		for(int i = 1; i < N; i++){
-			float X = distanceMatrix[l][i];
+			float X =customers[i].readyTime - distanceMatrix[l][i];
 			if(visited[i] || added[i] || X >= minX) continue;
 			minX = X; minI = i;
 		}
@@ -162,7 +162,7 @@ float generateInitialSolution(std::vector<Customer> customers, std::vector<std::
 	res.push_back(0);
 	int curWeight = maxWeight;
 	std::vector<bool> visited(N,false);
-	int visitedCount = 1, i,rclSize = 10, checkedRCL = 0;
+	int visitedCount = 1, i,rclSize = 20, checkedRCL = 0;
 	float totalTime = 0, currentTruckTime = 0;
 	std::vector<int> RCL;
 	//Construct RCL
@@ -278,7 +278,7 @@ bool isRouteValid(const std::vector<int> &route, const std::vector<Customer> &cu
             currentTime = customers[to].readyTime;
 
         currentTime += customers[to].serviceTime;
-        
+        //std::cout << "correct";
         
         currentLoad += customers[to].demand;
         if (currentLoad > truckCapacity) { 
@@ -312,6 +312,14 @@ int main(int argc, char* argv[]){
     std::vector<std::vector<float>> distanceMatrix(N,std::vector<float>(N,0));
     float bestDistance = 0, bestbestDistance = (unsigned int) -1;
     calculateDistance(N,distanceMatrix,customers);
+	std::vector<int> RCL;
+	std::vector<bool> visited(N,false);
+	//Construct RCL
+	makeRCL(RCL,customers,distanceMatrix,visited,0,0,N,20);	
+	//printVector(RCL);
+	std::cout << customers[175].readyTime << "\n";
+	
+	
 	while(true){
 		truckCount = 0;
 		N = customers.size();
@@ -319,6 +327,7 @@ int main(int argc, char* argv[]){
 		tmpRoute.clear();
 
 		bestDistance = generateInitialSolution(customers,distanceMatrix,bestRoute,N,maxWeight);
+		//printVector(bestRoute);
 		bool foundImpr = false;
 		tmpRoute = bestRoute;
 		N = bestRoute.size();
@@ -326,6 +335,7 @@ int main(int argc, char* argv[]){
 			if(bestRoute[i] == 0) truckCount++;
 		}
 		//merge
+		
 		int i=0,k,j=1,l=j+1;
 		while(i < bestRoute.size() -2){
 			k = i+1;
@@ -354,6 +364,8 @@ int main(int argc, char* argv[]){
 			}
 			i=k;
 		}
+		
+		//std::cout << isRouteValid(bestRoute,customers,distanceMatrix,maxWeight) << "\n";
 		N = bestRoute.size();
 		//2opt
 		do{
@@ -376,11 +388,12 @@ int main(int argc, char* argv[]){
 					}
 				}	
 				auto now = clock::now();
-				if(now - start >= std::chrono::minutes(5)){
+				if(now - start >= std::chrono::seconds(270)){
 					if(bestDistance < bestbestDistance){
 						bestbestDistance = bestDistance;
 						bestBestRoute = bestRoute;
 					}
+					std::cout << isRouteValid(bestBestRoute,customers,distanceMatrix,maxWeight) << "\n";
 					printVector(bestBestRoute);
 					saveFile(bestBestRoute, bestbestDistance);
 					return 0;
@@ -401,12 +414,12 @@ int main(int argc, char* argv[]){
 			bestBestRoute = bestRoute;
 		}
 		auto now = clock::now();
-		if(now - start >= std::chrono::minutes(5)){
-			//break;
+		if(now - start >= std::chrono::seconds(170)){
+			break;
 		}
 		
 	}
-	printVector(bestBestRoute);
+	std::cout << N <<"\n" <<  isRouteValid(bestBestRoute,customers,distanceMatrix,maxWeight) << "\n";
 	saveFile(bestBestRoute, bestbestDistance);
     return 0;
 
