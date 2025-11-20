@@ -1,4 +1,6 @@
 a.out
-*.exe
+main.exe
+a.exe
+results.txt
 .idea/
 
