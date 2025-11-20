@@ -19,6 +19,7 @@ struct Customer{
     int readyTime;
     int dueTime;
     int serviceTime;
+	
 };
 
 struct Vehicle{
@@ -31,6 +32,16 @@ std::string formatData(const std::string& input);
 std::vector<int> splitVector(std::vector<int> vector,int index);
 
 
+std::ostream& operator<<(std::ostream& os, const Customer& c)
+{
+    os << "Customer(" << c.id
+       << ", d=" << c.demand
+       << ", x=" << c.x
+       << ", y=" << c.y
+       << ")";
+    return os;
+}
+
 template<typename T>
 void printVector(std::vector<T> M){
 	for( auto i : M){
@@ -40,6 +51,24 @@ void printVector(std::vector<T> M){
 	return;
 }
 
+bool solutionCorrectnessCheck(std::vector<Customer> &customers, std::vector<std::vector<long double>> &distanceMatrix) {
+    int depot = 0;
+
+    for(int i = 1; i < customers.size(); i++) {
+        float arrival = distanceMatrix[depot][i];
+        float startService = std::max(arrival, (float)customers[i].readyTime);
+        float finishService = startService + customers[i].serviceTime;
+        float backToDepot = finishService + distanceMatrix[i][depot];
+
+        if(finishService > customers[i].dueTime || backToDepot > customers[depot].dueTime) {
+            std::cout << "Customer " << customers[i].id << " is infeasible.\n";
+            return false;
+        }
+    }
+
+    return true;
+}
+
 
 
 void saveFile(std::vector<int> &routesVector, long double distance) {
@@ -47,6 +76,13 @@ void saveFile(std::vector<int> &routesVector, long double distance) {
     std::ofstream endFile("result.txt");
     if (!endFile.is_open()) return;
 	endFile << std::fixed <<  std::setprecision(5);
+	//close if result unachiveable
+	if (distance == -1){
+		endFile << distance;
+		endFile.close();
+		exit(0);
+	}
+
 
     int routeIndex = 0;
     int routeCount = -1;
@@ -313,6 +349,15 @@ int main(int argc, char* argv[]){
     std::vector<std::vector<long double>> distanceMatrix(N,std::vector<long double>(N,0));
     long double bestDistance = 0, bestbestDistance = (unsigned int) -1;
     calculateDistance(N,distanceMatrix,customers);
+
+	bool ok = solutionCorrectnessCheck(customers, distanceMatrix);
+	if(!ok){
+		saveFile(bestRoute, -1);
+	}
+
+
+    //printMatrix(distanceMatrix,N);
+    //std::cout << incidenceMatrix[0].size
 	while(true){
 		truckCount = 0;
 		N = customers.size();
