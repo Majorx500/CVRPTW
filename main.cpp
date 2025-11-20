@@ -57,11 +57,9 @@ bool solutionCorrectnessCheck(std::vector<Customer> &customers, std::vector<std:
     for(int i = 1; i < customers.size(); i++) {
         float arrival = distanceMatrix[depot][i];
         float startService = std::max(arrival, (float)customers[i].readyTime);
-        float finishService = startService + customers[i].serviceTime;
-        float backToDepot = finishService + distanceMatrix[i][depot];
+        float backToDepot = startService + customers[i].serviceTime + distanceMatrix[i][depot];
 
-        if(finishService > customers[i].dueTime || backToDepot > customers[depot].dueTime) {
-            std::cout << "Customer " << customers[i].id << " is infeasible.\n";
+        if(arrival > customers[i].dueTime || backToDepot > customers[depot].dueTime) {
             return false;
         }
     }
@@ -131,7 +129,7 @@ void readFile(const char* name, std::vector<Customer>& customers, int &vehicleWe
 				iss >> vehicleWeight >>vehicleWeight;
                 break;}
             default:{
-                if (lineCount >= 7) {
+                if (lineCount >= 7 && line.length() > 12) {
                     Customer customer;
                     std::istringstream iss(line);
                     iss >> customer.id >> customer.x >> customer.y >> customer.demand >> customer.readyTime >> customer.dueTime >> customer.serviceTime;
@@ -315,7 +313,6 @@ bool isRouteValid(const std::vector<int> &route, const std::vector<Customer> &cu
             currentTime = customers[to].readyTime;
 
         currentTime += customers[to].serviceTime;
-        //std::cout << "correct";
         
         currentLoad += customers[to].demand;
         if (currentLoad > truckCapacity) { 
@@ -355,9 +352,6 @@ int main(int argc, char* argv[]){
 		saveFile(bestRoute, -1);
 	}
 
-
-    //printMatrix(distanceMatrix,N);
-    //std::cout << incidenceMatrix[0].size
 	while(true){
 		truckCount = 0;
 		N = customers.size();
@@ -428,9 +422,6 @@ int main(int argc, char* argv[]){
 						bestbestDistance = bestDistance;
 						bestBestRoute = bestRoute;
 					}
-					std::cout << isRouteValid(bestBestRoute,customers,distanceMatrix,maxWeight) << "\n";
-					//printVector(bestBestRoute);
-					//std::cout << bestbestDistance;
 					saveFile(bestBestRoute, bestbestDistance);
 					return 0;
 				}
@@ -455,7 +446,7 @@ int main(int argc, char* argv[]){
 		}
 		
 	}
-	std::cout << N <<"\n" <<  isRouteValid(bestBestRoute,customers,distanceMatrix,maxWeight) << "\n";
+	
 	saveFile(bestBestRoute, bestbestDistance);
     return 0;
 
