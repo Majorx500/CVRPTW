@@ -1,9 +1,12 @@
 rc21010
+
 VEHICLE
 NUMBER     CAPACITY
  250         1000
+
 CUSTOMER
 CUST NO.  XCOORD.    YCOORD.    DEMAND   READY TIME  DUE DATE   SERVICE TIME
+ 
     0     250        250          0          0       7284          0
     1     440        436         18       3328       3928         10
     2     214        394         10        682       1282         10
@@ -1004,4 +1007,4 @@ CUST NO.  XCOORD.    YCOORD.    DEMAND   READY TIME  DUE DATE   SERVICE TIME
   997     335         99         25       4634       5234         10
   998     485         24         20       1045       1645         10
   999     470        475         30       1001       1601         10
- 1000     341         58         10        655       1255         10
+ 1000     341         58         10        655       1255         10    

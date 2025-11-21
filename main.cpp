@@ -9,7 +9,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <iomanip>
-#include<chrono>
+#include <chrono>
 //declaration of structures
 struct Customer{
     int id;
@@ -69,9 +69,9 @@ bool solutionCorrectnessCheck(std::vector<Customer> &customers, std::vector<std:
 
 
 
-void saveFile(std::vector<int> &routesVector, long double distance) {
+void saveFile(std::vector<int> &routesVector, long double distance, std::string fileName) {
 
-    std::ofstream endFile("result.txt");
+    std::ofstream endFile(fileName);
     if (!endFile.is_open()) return;
 	endFile << std::fixed <<  std::setprecision(5);
 	//close if result unachiveable
@@ -337,7 +337,8 @@ int main(int argc, char* argv[]){
 	srand(time(NULL));
 	using clock = std::chrono::steady_clock;
 	auto start = clock::now();
-	
+	std::string fileName = argv[2];
+	int maxseconds = atoi(argv[3]);
     int maxWeight = 200;
     std::vector<Customer> customers;
     readFile(argv[1], customers, maxWeight);
@@ -349,7 +350,7 @@ int main(int argc, char* argv[]){
 
 	bool ok = solutionCorrectnessCheck(customers, distanceMatrix);
 	if(!ok){
-		saveFile(bestRoute, -1);
+		saveFile(bestRoute, -1,fileName);
 	}
 
 	while(true){
@@ -417,12 +418,12 @@ int main(int argc, char* argv[]){
 					}
 				}	
 				auto now = clock::now();
-				if(now - start >= std::chrono::seconds(270)){
+				if(now - start >= std::chrono::seconds(maxseconds-10)){
 					if(bestDistance < bestbestDistance){
 						bestbestDistance = bestDistance;
 						bestBestRoute = bestRoute;
 					}
-					saveFile(bestBestRoute, bestbestDistance);
+					saveFile(bestBestRoute, bestbestDistance,fileName);
 					return 0;
 				}
 			}
@@ -441,13 +442,13 @@ int main(int argc, char* argv[]){
 			bestBestRoute = bestRoute;
 		}
 		auto now = clock::now();
-		if(now - start >= std::chrono::seconds(170)){
+		if(now - start >= std::chrono::seconds(maxseconds-10)){
 			break;
 		}
 		
 	}
 	
-	saveFile(bestBestRoute, bestbestDistance);
+	saveFile(bestBestRoute, bestbestDistance,fileName);
     return 0;
 
 }
