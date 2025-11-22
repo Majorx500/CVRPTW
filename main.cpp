@@ -129,7 +129,8 @@ void readFile(const char* name, std::vector<Customer>& customers, int &vehicleWe
 				iss >> vehicleWeight >>vehicleWeight;
                 break;}
             default:{
-                if (lineCount >= 7 && line.length() > 12) {
+                if (lineCount >= 6 && line.length() > 10) {
+
                     Customer customer;
                     std::istringstream iss(line);
                     iss >> customer.id >> customer.x >> customer.y >> customer.demand >> customer.readyTime >> customer.dueTime >> customer.serviceTime;
@@ -208,9 +209,10 @@ long double generateInitialSolution(std::vector<Customer> customers, std::vector
 	curWeight -= customers[RCL[i]].demand; currentTruckTime = distanceMatrix[0][RCL[i]];
 	if(currentTruckTime < customers[RCL[i]].readyTime) currentTruckTime = customers[RCL[i]].readyTime;
 	currentTruckTime += customers[RCL[i]].serviceTime;
-	while( visitedCount < N-1){
+	while( visitedCount < N){
 		RCL.clear();
 		makeRCL(RCL,customers,distanceMatrix,visited,currentTruckTime,res.back(),N,rclSize);
+
 		if(RCL.size() == 0) break;
 		i = rand()%RCL.size();
 		long double arriveTime = currentTruckTime + distanceMatrix[res.back()][RCL[i]];
@@ -367,36 +369,38 @@ int main(int argc, char* argv[]){
 		}
 		//merge
 		
-		int i=0,k,j=1,l=j+1;
-		while(i < bestRoute.size() -2){
-			k = i+1;
-			while( k < bestRoute.size() -1 && bestRoute[k]!= 0) k++;
-			while(j < bestRoute.size() -2){
-				while( j< bestRoute.size() -2 && bestRoute[j] != 0) j++;
-				l=j+1;
-				while(l < bestRoute.size() -1 && bestRoute[l] != 0) l++;
-				long double savings = distanceMatrix[bestRoute[k-1]][0] + distanceMatrix[bestRoute[j+1]][0] - distanceMatrix[bestRoute[k-1]][bestRoute[j+1]];
-				if(savings > 0){
-					std::vector<int> r1 = splitVector(bestRoute,i+1),r2 = splitVector(bestRoute,j+1);
-					r1.insert(r1.end(),r2.begin(),r2.end());
-					sortByDueTime(r1,customers);
-					r2 = {0}; r2.insert(r2.end(),r1.begin(),r1.end());
-					r2.push_back(0);
-					if(isRouteValid(r2,customers,distanceMatrix,maxWeight)){
-						r2.erase(r2.begin());
-						bestRoute.erase(bestRoute.begin()+i+1,bestRoute.begin()+k+1);
-						bestRoute.erase(bestRoute.begin()+j-k+i+1,bestRoute.begin()+l-k+i+1);
-						bestRoute.insert(bestRoute.end(),r2.begin(),r2.end());
-						k = i+1;
-						while( k < bestRoute.size() -1 && bestRoute[k]!= 0) k++;
+		if(bestRoute.size() > customers.size() + 1){
+			int i=0,k,j=1,l=j+1;
+			while(i < bestRoute.size() -2){
+				k = i+1;
+				while( k < bestRoute.size() -1 && bestRoute[k]!= 0) k++;
+				while(j < bestRoute.size() -2){
+					while( j< bestRoute.size() -2 && bestRoute[j] != 0) j++;
+					l=j+1;
+					while(l < bestRoute.size() -1 && bestRoute[l] != 0) l++;
+					long double savings = distanceMatrix[bestRoute[k-1]][0] + distanceMatrix[bestRoute[j+1]][0] - distanceMatrix[bestRoute[k-1]][bestRoute[j+1]];
+					if(savings > 0){
+						std::vector<int> r1 = splitVector(bestRoute,i+1),r2 = splitVector(bestRoute,j+1);
+						r1.insert(r1.end(),r2.begin(),r2.end());
+						sortByDueTime(r1,customers);
+						r2 = {0}; r2.insert(r2.end(),r1.begin(),r1.end());
+						r2.push_back(0);
+						if(isRouteValid(r2,customers,distanceMatrix,maxWeight)){
+							r2.erase(r2.begin());
+							bestRoute.erase(bestRoute.begin()+i+1,bestRoute.begin()+k+1);
+							bestRoute.erase(bestRoute.begin()+j-k+i+1,bestRoute.begin()+l-k+i+1);
+							bestRoute.insert(bestRoute.end(),r2.begin(),r2.end());
+							k = i+1;
+							while( k < bestRoute.size() -1 && bestRoute[k]!= 0) k++;
+						}
 					}
+					j= l+1;
 				}
-				j= l+1;
+				i=k;
 			}
-			i=k;
 		}
-		
 		N = bestRoute.size();
+		
 		//2opt
 		do{
 			foundImpr = false;
