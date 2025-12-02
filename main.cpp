@@ -116,10 +116,11 @@ void readFile(const char* name, std::vector<Customer>& customers, int &vehicleWe
     if (file.is_open()) {
         std::string line;
         int lineCount = 0;
+		
         while (std::getline(file, line)) {
-
             line = formatData(line);
-			if (line.empty()) {
+			//std::cout << line << std::flush;
+			if (line.empty() || line.length() < 3) {
                 continue;
             }
             switch (lineCount)
@@ -182,7 +183,7 @@ void makeRCL(std::vector<int> &rcl, std::vector<Customer> customers, std::vector
 		long double minX = customers[0].dueTime;
 		int minI = 0;
 		for(int i = 1; i < N; i++){
-			long double X = distanceMatrix[l][i];
+			long double X = distanceMatrix[i][l];
 			if(visited[i] || added[i] || X >= minX) continue;
 			minX = X; minI = i;
 		}
@@ -198,7 +199,7 @@ long double generateInitialSolution(std::vector<Customer> customers, std::vector
 	res.push_back(0);
 	int curWeight = maxWeight;
 	std::vector<bool> visited(N,false);
-	int visitedCount = 1, i,rclSize = 20, checkedRCL = 0;
+	int visitedCount = 1, i,rclSize = 26, checkedRCL = 0;
 	long double totalTime = 0, currentTruckTime = 0;
 	std::vector<int> RCL;
 	//Construct RCL
@@ -212,9 +213,9 @@ long double generateInitialSolution(std::vector<Customer> customers, std::vector
 	while( visitedCount < N){
 		RCL.clear();
 		makeRCL(RCL,customers,distanceMatrix,visited,currentTruckTime,res.back(),N,rclSize);
-
 		if(RCL.size() == 0) break;
 		i = rand()%RCL.size();
+		//std::cout << RCL[i] << " " << std::flush;
 		long double arriveTime = currentTruckTime + distanceMatrix[res.back()][RCL[i]];
 		if(arriveTime > customers[RCL[i]].dueTime && checkedRCL < rclSize){checkedRCL++; continue;}
 		if(curWeight - customers[RCL[i]].demand < 0 || checkedRCL >= rclSize){
@@ -349,7 +350,7 @@ int main(int argc, char* argv[]){
     std::vector<std::vector<long double>> distanceMatrix(N,std::vector<long double>(N,0));
     long double bestDistance = 0, bestbestDistance = (unsigned int) -1;
     calculateDistance(N,distanceMatrix,customers);
-
+	//printVector(customers);
 	bool ok = solutionCorrectnessCheck(customers, distanceMatrix);
 	if(!ok){
 		saveFile(bestRoute, -1,fileName);
@@ -368,7 +369,6 @@ int main(int argc, char* argv[]){
 			if(bestRoute[i] == 0) truckCount++;
 		}
 		//merge
-		
 		if(bestRoute.size() > customers.size() + 1){
 			int i=0,k,j=1,l=j+1;
 			while(i < bestRoute.size() -2){
