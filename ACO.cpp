@@ -380,7 +380,7 @@ int main(int argc, char* argv[]){
 	if(!ok){
 		saveFile(routes, -1,fileName);
 	}
-			std::vector<std::vector<long double>>PheromoneIntensity(N,std::vector<long double>(N,1));
+	std::vector<std::vector<long double>>PheromoneIntensity(N,std::vector<long double>(N,1));
 
 	while(true){
 		truckCount = 0;
@@ -417,6 +417,8 @@ int main(int argc, char* argv[]){
 					maxLenI = j;
 				}
 			}
+			
+			std::cout << "mutate\n";
 			std::vector<double> randValues;
 			for(int j = 0; j < routes[maxLenI].size() + routes[max2LenI].size(); j++){
 				randValues.push_back((rand()%10000)/10000.0);
@@ -435,6 +437,9 @@ int main(int argc, char* argv[]){
 				routeTimes[maxLenI] = countAntTime(routes[maxLenI],customers,distanceMatrix);
 				routeTimes[max2LenI] = countAntTime(routes[max2LenI],customers,distanceMatrix);
 			}
+
+			
+			std::cout << "fix mutation\n";
 
 			bool swapped = false;
 			long double antTime = distanceMatrix[0][routes[maxLenI][0]] + customers[routes[maxLenI][0]].serviceTime;
@@ -485,9 +490,27 @@ int main(int argc, char* argv[]){
 
 				}
 			}
-
+			
+			std::cout << "local update\n";
 			//LOCAL SEARCH
-			bestDistance = countDistance(bestRoute,customers,distanceMatrix);
+			//bestDistance = countDistance(bestRoute,customers,distanceMatrix);
+			//merge
+			for(int j = 0; j < routes.size(); j++){
+				for(int k = 0; k < routes.size(); k++){
+					if (k == j) continue;
+					long double savings = distanceMatrix[bestRoute[k-1]][0] + distanceMatrix[bestRoute[j+1]][0] - distanceMatrix[bestRoute[k-1]][bestRoute[j+1]];
+					if(savings > 0){
+						std::vector<int> r = routes[j];
+						r.insert(r.end(),routes[k].begin(),routes[k].end());
+						if(isRouteValid(r,customers,distanceMatrix,maxWeight)){
+							routes[j] = r; routes.erase(routes.begin() + k);
+							k--;
+						}
+					}
+				}
+			}
+
+			std::cout << "local update\n";
 			//LOCAL UPDATE
 			for(int j = 0; j < customers.size(); j++){
 				for(int k = j+1; k < customers.size(); k++){
@@ -503,7 +526,7 @@ int main(int argc, char* argv[]){
 			}
         }
 		
-		connectRoute(routes,bestRoute);
+		//connectRoute(routes,bestRoute);
 		//GLOBAL UPDATING
 		for(int j = 0; j < customers.size(); j++){
 			for(int k = j+1; k < customers.size(); k++){
@@ -517,7 +540,7 @@ int main(int argc, char* argv[]){
 		}
 
 	}
-	printMatrix(PheromoneIntensity,customers.size());
+	//printMatrix(PheromoneIntensity,customers.size());
 
 	saveFile(routes, bestDistance,fileName);
     return 0;

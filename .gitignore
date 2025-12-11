@@ -1,6 +1,9 @@
 a.out
 main.exe
 a.exe
+aco.exe
+grasp.exe
+*.exe
 results.txt
 .idea/
 
