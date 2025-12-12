@@ -22,6 +22,11 @@ struct Customer{
 	
 };
 
+struct PheromonePair{
+	int index;
+	long double pheromone;
+};
+
 struct Vehicle{
     int vehicleNumber;
     int vehicleCapacity;
@@ -30,6 +35,13 @@ struct Vehicle{
 //declaration of functions
 std::string formatData(const std::string& input);
 std::vector<int> splitVector(std::vector<int> vector,int index);
+
+std::ostream& operator<<(std::ostream& os, const PheromonePair& p) {
+    os << "{ idx: " << p.index 
+       << ", pher: " << p.pheromone 
+       << " }";
+    return os;
+}
 
 
 std::ostream& operator<<(std::ostream& os, const Customer& c)
@@ -144,12 +156,14 @@ void readFile(const char* name, std::vector<Customer>& customers, int &vehicleWe
 
     }
 	file.close();
-
-
-
-
-
 }
+
+int generatePheromoneMatrix(std::vector<std::vector<int>> &pheromoneMatrix){
+	return 1;
+}
+
+
+
 
 
 int calculateDistance(int N,std::vector<std::vector<long double>> &distanceM, std::vector<Customer> customers){
@@ -171,13 +185,13 @@ template<typename T>
 void printMatrix(std::vector<std::vector<T>> M, int N){
 	std::streamsize ss = std::cout.precision();
 	std::cout << std::setprecision(4);
+	for(int j=0; j < N; j++){
 	for(int i = 0; i < N ;i++)
-		std::cout << "\t" << i;
-	std::cout << "\n";
+		std::cout << "\t" << M[j][i];
+	std::cout << "\n";}
 }
 
 void makeRCL(std::vector<int> &rcl, std::vector<Customer> customers, std::vector<std::vector<long double>> distanceMatrix,std::vector<bool> visited, long double truckTime, int l,int N, int listSize){
-	//ReadyTime - Distance
 	std::vector<bool> added(N,false);	
 	for(int k = 0; k < listSize; k++){
 		long double minX = customers[0].dueTime;
@@ -194,8 +208,111 @@ void makeRCL(std::vector<int> &rcl, std::vector<Customer> customers, std::vector
 	return;
 }
 
+long double calculatePheromoneTrailANT(std::vector<Customer> customers,
+									std::vector<std::vector<long double>> &distanceMatrix,
+									std::vector<std::vector<double>> &pheromoneMatrix,
+									int currentNode, int nextNode, int A, int B){
+	long double vis = 1/(distanceMatrix[currentNode][nextNode]);
+	std::cout << "Licznik:" << vis << "\n";
+	long double pi = pheromoneMatrix[currentNode][nextNode];
+	long double licznik = pow(pi, A)*pow(vis, B);
+	return licznik;
+	
+}
 
-bool generateInitialSolution(std::vector<Customer> customers, std::vector<std::vector<long double>> distanceMatrix, std::vector<int> &res, int N, int maxWeight){	
+
+long double generateInitialSolutionANT(std::vector<Customer> customers, 
+									   std::vector<std::vector<long double>> &distanceMatrix,
+									   std::vector<std::vector<double>> &pheromoneMatrix, 
+									   std::vector<int> &res, int N, int maxWeight, int A, int B){	
+	
+	std::vector<Customer> notVisited = customers;
+	std::vector<Customer> visited;
+	std::vector<PheromonePair> pheroList;
+	std::vector<PheromonePair> probList;
+
+	notVisited.erase(notVisited.begin()); //eliminate depot
+
+	int currentNode = customers[0].id;
+	float total = 0;					
+	int curWeight = 0;				
+	long double totalTime = 0, currentTruckTime = 0;
+	
+	while (!notVisited.empty()) {
+		float total = 0.0f;
+		pheroList.clear();
+		probList.clear();
+
+		//ten for służy do wyliczenia pheromonów
+		for (Customer el : notVisited) {
+
+			if (curWeight - el.demand < 0) continue; // jak mamy za mało ładowności to skip
+			long double arrivalTime = currentTruckTime + distanceMatrix[currentNode][el.id];
+			if (arrivalTime > el.dueTime) continue; //jeżeli za późno to skip
+			
+			PheromonePair pheromone;
+			pheromone.index = el.id;
+			pheromone.pheromone = calculatePheromoneTrailANT(customers, distanceMatrix,pheromoneMatrix, currentNode,el.id, A, B);
+
+			total += pheromone.pheromone; //potrebujemy do Sum(pi * vis)
+			pheroList.push_back(pheromone);
+		}
+		// tutaj wracamy do depotu 
+		if (pheroList.empty()) {
+			totalTime += currentTruckTime + distanceMatrix[currentNode][0]; 
+			currentNode = 0;
+			visited.push_back(customers[0]);
+			curWeight = maxWeight;
+			currentTruckTime = 0;
+			continue;
+		}
+
+		//wyliczamy resztę wzoru czyli dla każdego elementu dzielimi przez total (sum z poprzednego fora)
+		for (auto &trail : pheroList) {
+			PheromonePair p;
+			p.index = trail.index;
+			p.pheromone = trail.pheromone / total;
+			probList.push_back(p);
+		}
+
+		//sort
+		std::sort(probList.begin(), probList.end(),
+				[](auto& a, auto& b){ return a.pheromone > b.pheromone; });
+
+
+		//rozkład pradowpodobienstwa 
+		long double r = (long double)rand() / RAND_MAX;
+		long double cumulative = 0.0;
+		int picked = probList.back().index; 
+
+		//dystrybuanta 
+		for (auto &p : probList) {
+			cumulative += p.pheromone;
+			if (r <= cumulative) {
+				picked = p.index;
+				break;
+			}
+		}
+		long double arrival = currentTruckTime + distanceMatrix[currentNode][picked];
+		if (arrival < customers[picked].readyTime) arrival = customers[picked].readyTime;
+		currentTruckTime = arrival + customers[picked].serviceTime;
+		curWeight -= customers[picked].demand;
+
+		visited.push_back(customers[picked]);
+		currentNode = picked;
+
+		//labmda 
+		notVisited.erase(std::remove_if(notVisited.begin(), notVisited.end(),[&](const Customer& c){ return c.id == picked; }),notVisited.end());
+	}
+	// dodajemy do res id punktów
+	for(Customer node : visited){
+		res.push_back(node.id);
+	}
+	res.push_back(0);
+	return 0;
+}
+
+long double generateInitialSolution(std::vector<Customer> customers, std::vector<std::vector<long double>> distanceMatrix, std::vector<int> &res, int N, int maxWeight){	
 	res.push_back(0);
 	int curWeight = maxWeight;
 	std::vector<bool> visited(N,false); bool generateRCL = true;
@@ -246,12 +363,11 @@ void prettyPrintRes(std::vector<int> res, std::vector<Customer> cust){
 		std::cout << "(" << cust[res[i]].x << ","<<cust[res[i]].y<<"),";
 	}
 }
-
 //formats data given by the file to standarized output
 std::string formatData(const std::string& input){
-    return std::regex_replace(input, std::regex(" {2,}"), " ");
-    
+    return std::regex_replace(input, std::regex(" {2,}"), " ");    
 }
+
 std::vector<int> splitVector(std::vector<int> vector, int index) {
     std::vector<int> splitedVector;
     while (index < vector.size() && vector[index] != 0) {
@@ -260,8 +376,6 @@ std::vector<int> splitVector(std::vector<int> vector, int index) {
         index++;
     }
     return splitedVector;
-
-
 }
 
 long double countDistance(std::vector<int> res, std::vector<Customer> customers, std::vector<std::vector<long double>> distanceMatrix){
@@ -277,10 +391,7 @@ long double countDistance(std::vector<int> res, std::vector<Customer> customers,
 		}
 	}
 	return time;
-
 }
-
-
 
 void swapEdges(std::vector<int> &res,int i, int j){
 	i+=1;
@@ -310,7 +421,6 @@ bool isRouteValid(const std::vector<int> &route, const std::vector<Customer> &cu
         if (currentTime > customers[to].dueTime) {
             return false;
         }
-
         // Czekanie na otwarcie okna 
         if (currentTime < customers[to].readyTime)
             currentTime = customers[to].readyTime;
@@ -348,9 +458,16 @@ int main(int argc, char* argv[]){
     int N = customers.size(), truckCount = 0, bestTruckCount = N;
     std::vector<int> bestRoute,tmpRoute, bestBestRoute;
     std::vector<std::vector<long double>> distanceMatrix(N,std::vector<long double>(N,0));
-    long double bestDistance = 0, bestbestDistance = (unsigned int) -1;
+    std::vector<std::vector<double>> pheromoneMatrix(N,std::vector<double>(N,1));
+	std::cout << "Print pheromone Matrix: ";
+	printMatrix(pheromoneMatrix, N);
+	long double bestDistance = 0, bestbestDistance = (unsigned int) -1;
     calculateDistance(N,distanceMatrix,customers);
-	bool ok = solutionCorrectnessCheck(customers, distanceMatrix,maxWeight);
+	
+	generateInitialSolutionANT(customers,distanceMatrix,pheromoneMatrix,bestRoute,N,maxWeight,1,1);
+	printVector(bestRoute);
+	//printVector(customers);
+	bool ok = solutionCorrectnessCheck(customers, distanceMatrix);
 	if(!ok){
 		saveFile(bestRoute, -1,fileName);
 	}

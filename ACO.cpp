@@ -22,14 +22,22 @@ struct Customer{
 	
 };
 
-struct Vehicle{
-    int vehicleNumber;
-    int vehicleCapacity;
+struct PheromonePair{
+	int index;
+	long double pheromone;
 };
+
 
 //declaration of functions
 std::string formatData(const std::string& input);
 std::vector<int> splitVector(std::vector<int> vector,int& index);
+
+std::ostream& operator<<(std::ostream& os, const PheromonePair& p) {
+    os << "{ idx: " << p.index 
+       << ", pher: " << p.pheromone 
+       << " }";
+    return os;
+}
 
 
 std::ostream& operator<<(std::ostream& os, const Customer& c)
@@ -65,6 +73,37 @@ bool solutionCorrectnessCheck(std::vector<Customer> &customers, std::vector<std:
     }
 
     return true;
+}
+
+void saveFile(std::vector<int> &routesVector, long double distance, std::string fileName) {
+
+    std::ofstream endFile(fileName);
+    if (!endFile.is_open()) return;
+	endFile << std::fixed <<  std::setprecision(5);
+	//close if result unachiveable
+	if (distance == -1){
+		endFile << distance;
+		endFile.close();
+		exit(0);
+	}
+
+
+    int routeIndex = 0, routesNo = 0;
+	for(int i = 0; i < routesVector.size()-1; i++)
+		if(routesVector[i] == 0) routesNo++;
+	//i believe routesLength and count will be passed seperately. ._.
+
+
+	endFile << routesNo << " " << distance << " \n";
+
+	for(int i = 1; i < routesVector.size(); i++){
+		if(routesVector[i] !=0){
+			endFile << routesVector[i] << " ";
+			continue;
+		}
+		endFile << "\n";
+	}
+    endFile.close();
 }
 
 
@@ -140,6 +179,110 @@ void readFile(const char* name, std::vector<Customer>& customers, int &vehicleWe
 
 }
 
+long double calculatePheromoneTrailANT(std::vector<Customer> customers,
+									std::vector<std::vector<long double>> &distanceMatrix,
+									std::vector<std::vector<double>> &pheromoneMatrix,
+									int currentNode, int nextNode, int A, int B){
+	long double vis = 1/(distanceMatrix[currentNode][nextNode]);
+	//std::cout << "Licznik:" << vis << "\n";
+	long double pi = pheromoneMatrix[currentNode][nextNode];
+	long double licznik = pow(pi, A)*pow(vis, B);
+	return licznik;
+	
+}
+
+
+long double generateInitialSolutionANT(std::vector<Customer> customers, 
+									   std::vector<std::vector<long double>> &distanceMatrix,
+									   std::vector<std::vector<double>> &pheromoneMatrix, 
+									   std::vector<int> &res, int N, int maxWeight, int A, int B){	
+	
+	std::vector<Customer> notVisited = customers;
+	std::vector<Customer> visited;
+	std::vector<PheromonePair> pheroList;
+	std::vector<PheromonePair> probList;
+
+	notVisited.erase(notVisited.begin()); //eliminate depot
+
+	int currentNode = customers[0].id;
+	float total = 0;					
+	int curWeight = 0;				
+	long double totalTime = 0, currentTruckTime = 0;
+	
+	while (!notVisited.empty()) {
+		float total = 0.0f;
+		pheroList.clear();
+		probList.clear();
+
+		//ten for służy do wyliczenia pheromonów
+		for (Customer el : notVisited) {
+
+			if (curWeight - el.demand < 0) continue; // jak mamy za mało ładowności to skip
+			long double arrivalTime = currentTruckTime + distanceMatrix[currentNode][el.id];
+			if (arrivalTime > el.dueTime) continue; //jeżeli za późno to skip
+			
+			PheromonePair pheromone;
+			pheromone.index = el.id;
+			pheromone.pheromone = calculatePheromoneTrailANT(customers, distanceMatrix,pheromoneMatrix, currentNode,el.id, A, B);
+
+			total += pheromone.pheromone; //potrebujemy do Sum(pi * vis)
+			pheroList.push_back(pheromone);
+		}
+		// tutaj wracamy do depotu 
+		if (pheroList.empty()) {
+			totalTime += currentTruckTime + distanceMatrix[currentNode][0]; 
+			currentNode = 0;
+			visited.push_back(customers[0]);
+			curWeight = maxWeight;
+			currentTruckTime = 0;
+			continue;
+		}
+
+		//wyliczamy resztę wzoru czyli dla każdego elementu dzielimi przez total (sum z poprzednego fora)
+		for (auto &trail : pheroList) {
+			PheromonePair p;
+			p.index = trail.index;
+			p.pheromone = trail.pheromone / total;
+			probList.push_back(p);
+		}
+
+		//sort
+		std::sort(probList.begin(), probList.end(),
+				[](auto& a, auto& b){ return a.pheromone > b.pheromone; });
+
+
+		//rozkład pradowpodobienstwa 
+		long double r = (long double)rand() / RAND_MAX;
+		long double cumulative = 0.0;
+		int picked = probList.back().index; 
+
+		//dystrybuanta 
+		for (auto &p : probList) {
+			cumulative += p.pheromone;
+			if (r <= cumulative) {
+				picked = p.index;
+				break;
+			}
+		}
+		long double arrival = currentTruckTime + distanceMatrix[currentNode][picked];
+		if (arrival < customers[picked].readyTime) arrival = customers[picked].readyTime;
+		currentTruckTime = arrival + customers[picked].serviceTime;
+		curWeight -= customers[picked].demand;
+
+		visited.push_back(customers[picked]);
+		currentNode = picked;
+
+		//labmda 
+		notVisited.erase(std::remove_if(notVisited.begin(), notVisited.end(),[&](const Customer& c){ return c.id == picked; }),notVisited.end());
+	}
+	// dodajemy do res id punktów
+	for(Customer node : visited){
+		res.push_back(node.id);
+	}
+	res.push_back(0);
+	return 0;
+}
+
 
 int calculateDistance(int N,std::vector<std::vector<long double>> &distanceM, std::vector<Customer> customers){
 	int dx,dy;
@@ -157,86 +300,15 @@ int calculateDistance(int N,std::vector<std::vector<long double>> &distanceM, st
 }
 
 template<typename T>
-void printMatrix(std::vector<std::vector<T>> M, int N){
+void printMatrix(std::vector<std::vector<T>> M){
 	std::streamsize ss = std::cout.precision();
 	std::cout << std::setprecision(4);
 	
-	for(int i = 0; i < N ;i++){
-		for(int j = 0; j < N; j++){
+	for(int i = 0; i < M.size() ;i++){
+		for(int j = 0; j < M[i].size(); j++){
 			std::cout << M[i][j] << "\t";
 		}
 		std::cout << "\n";
-	}
-}
-
-void makeRCL(std::vector<int> &rcl, std::vector<Customer> customers, std::vector<std::vector<long double>> distanceMatrix,std::vector<bool> visited, long double truckTime, int l,int N, int listSize){
-	//ReadyTime - Distance
-	std::vector<bool> added(N,false);	
-	for(int k = 0; k < listSize; k++){
-		long double minX = customers[0].dueTime;
-		int minI = 0;
-		for(int i = 1; i < N; i++){
-			long double X = distanceMatrix[i][l];
-			if(visited[i] || added[i] || X >= minX) continue;
-			minX = X; minI = i;
-		}
-		if(minI == 0) return;
-		added[minI]=true;
-		rcl.push_back(minI);
-	}
-	return;
-}
-
-
-long double generateInitialSolution(std::vector<Customer> customers, std::vector<std::vector<long double>> distanceMatrix, std::vector<int> &res, int N, int maxWeight){	
-	res.push_back(0);
-	int curWeight = maxWeight;
-	std::vector<bool> visited(N,false);
-	int visitedCount = 1, i,rclSize = 26, checkedRCL = 0;
-	long double totalTime = 0, currentTruckTime = 0;
-	std::vector<int> RCL;
-	//Construct RCL
-	makeRCL(RCL,customers,distanceMatrix,visited,currentTruckTime,0,N,rclSize);
-	rclSize = RCL.size();
-	i = rand()%rclSize;
-	res.push_back(RCL[i]); visited[RCL[i]] = true;
-	curWeight -= customers[RCL[i]].demand; currentTruckTime = distanceMatrix[0][RCL[i]];
-	if(currentTruckTime < customers[RCL[i]].readyTime) currentTruckTime = customers[RCL[i]].readyTime;
-	currentTruckTime += customers[RCL[i]].serviceTime;
-	while( visitedCount < N){
-		RCL.clear();
-		makeRCL(RCL,customers,distanceMatrix,visited,currentTruckTime,res.back(),N,rclSize);
-		if(RCL.size() == 0) break;
-		i = rand()%RCL.size();
-		//std::cout << RCL[i] << " " << std::flush;
-		long double arriveTime = currentTruckTime + distanceMatrix[res.back()][RCL[i]];
-		if(arriveTime > customers[RCL[i]].dueTime && checkedRCL < rclSize){checkedRCL++; continue;}
-		if(curWeight - customers[RCL[i]].demand < 0 || checkedRCL >= rclSize){
-			curWeight = maxWeight; checkedRCL = 0;
-			totalTime += currentTruckTime + distanceMatrix[res.back()][0];
-			res.push_back(0);
-			currentTruckTime = 0;
-			continue;
-		}
-		checkedRCL = 0;
-		if(arriveTime < customers[RCL[i]].readyTime) arriveTime = customers[RCL[i]].readyTime;
-		res.push_back(RCL[i]);visitedCount++;
-		visited[RCL[i]] = true;
-		curWeight -= customers[RCL[i]].demand;
-		currentTruckTime = arriveTime + customers[RCL[i]].serviceTime;
-		
-	}
-	if(currentTruckTime != 0) totalTime += currentTruckTime + distanceMatrix[res.back()][0];
-	res.push_back(0);
-	return totalTime;
-}
-void prettyPrintRes(std::vector<int> res, std::vector<Customer> cust){
-	for(int i = 0; i < res.size();i++){
-		if(res[i] ==0){
-			std::cout << "(" << cust[0].x << ","<<cust[0].y<<")\n" <<"(" << cust[0].x << ","<<cust[0].y<<"), ";
-			continue;
-		}
-		std::cout << "(" << cust[res[i]].x << ","<<cust[res[i]].y<<"),";
 	}
 }
 
@@ -260,6 +332,7 @@ std::vector<int> splitVector(std::vector<int> vector, int& index) {
 }
 
 int splitRoute(std::vector<std::vector<int>>& routes,std::vector<int> route){
+	routes.clear();
 	int i = 1;
 	std::vector<int> currentRoute;
 	while( i < route.size()){
@@ -279,6 +352,18 @@ int connectRoute(std::vector<std::vector<int>> routes, std::vector<int>& route){
 	}
 	return 0;
 }
+bool fixRoute(std::vector<int> r, std::vector<Customer> customers, std::vector<std::vector<long double>> distanceMatrix, int maxWeight){
+	bool fixed = false;
+	int curWeight = 0;
+	long double curTime = 0;
+	for(int i = 0; i < r.size()+1; i++){
+		curTime = std::max(curTime + distanceMatrix[i-1 < 0 ? 0 : r[i-1]][r[i]],(long double)customers[r[i]].readyTime);
+		if (curTime > customers[r[i]].dueTime){
+
+		}
+	}
+	return fixed;
+}
 
 long double countDistance(std::vector<int> res, std::vector<Customer> customers, std::vector<std::vector<long double>> distanceMatrix){
 	long double time = 0,truckTime=0;
@@ -297,17 +382,20 @@ long double countDistance(std::vector<int> res, std::vector<Customer> customers,
 }
 
 long double countAntTime(std::vector<int> route, std::vector<Customer> customers, std::vector<std::vector<long double>> distanceMatrix){
-	long double time;
-	time = std::max(time + distanceMatrix[0][route[0]], time + customers[route[0]].readyTime) + customers[route[0]].serviceTime;
+	long double time = 0;
+	time = std::max(distanceMatrix[0][route.front()],(long double)customers[route.front()].readyTime) + customers[route.front()].serviceTime;
 	for(int i = 0; i < route.size()-1; i++){
-		time = std::max(time + distanceMatrix[i][route[i+1]], time + customers[route[i+1]].readyTime) + customers[route[i+1]].serviceTime;
+		long double arriveTime = time + distanceMatrix[route[i]][route[i+1]];
+		time = std::max(arriveTime, (long double)customers[route[i+1]].readyTime);
+		time += customers[route[i+1]].serviceTime;
 	}
+	time += distanceMatrix[route.back()][0];
 	return time;
 }
 
 void swapEdges(std::vector<int> &res,int i, int j){
 	i+=1;
-	while(i < j && res[i] != 0 && res[j] != 0){
+	while(i < j){
 		std::swap(res[i],res[j]);
 		i++; j--;
 	}
@@ -316,8 +404,8 @@ void swapEdges(std::vector<int> &res,int i, int j){
 bool isRouteValid(const std::vector<int> &route, const std::vector<Customer> &customers, const std::vector<std::vector<long double>> &distanceMatrix, int truckCapacity)
 {
     long double totalTime = 0;
-    long double currentTime = 0;
-    int currentLoad = 0;
+    long double currentTime = std::max(distanceMatrix[0][route.front()], (long double) customers[route.front()].readyTime) + customers[route.front()].serviceTime;
+    int currentLoad = customers.at(route[0]).demand;
 	for (int i = 0; i < route.size() -1 ; i++) {
 		
         int from = route[i];
@@ -360,7 +448,7 @@ void sortByDueTime(std::vector<int> &res, std::vector<Customer> customers){
 }
 
 int main(int argc, char* argv[]){
-    int maxIterations = 10; int Q = 5;
+    int maxIterations = 100, Q = 5, A= 7, B = 8;
 	srand(time(NULL));
 	using clock = std::chrono::steady_clock;
 	auto start = clock::now();
@@ -371,146 +459,191 @@ int main(int argc, char* argv[]){
     std::vector<Customer> customers;
     readFile(argv[1], customers, maxWeight);
     int N = customers.size(), truckCount = 0, bestTruckCount = N;
-    std::vector<int> bestRoute,tmpRoute, bestBestRoute;
+    std::vector<int> bestRoute;
     std::vector<std::vector<long double>> distanceMatrix(N,std::vector<long double>(N,0));
     long double bestDistance = 0, bestbestDistance = (unsigned int) -1;
     calculateDistance(N,distanceMatrix,customers);
-	std::vector<std::vector<int>> routes; std::vector<long double> routeTimes;
+	std::vector<std::vector<int>> routes, bestRoutes; std::vector<long double> routeTimes;
 	bool ok = solutionCorrectnessCheck(customers, distanceMatrix);
 	if(!ok){
 		saveFile(routes, -1,fileName);
 	}
-	std::vector<std::vector<long double>>PheromoneIntensity(N,std::vector<long double>(N,1));
+	std::vector<std::vector<double>>PheromoneIntensity(N,std::vector<double>(N,1));
+	int l = 0;
 
 	while(true){
+		
 		truckCount = 0;
+		routes.clear();
 		N = customers.size();
 		bestRoute.clear();
-		tmpRoute.clear();
-		generateInitialSolution(customers,distanceMatrix,bestRoute,N,maxWeight);
+		//std::cout << "generating new solution\n";
+		generateInitialSolutionANT(customers,distanceMatrix,PheromoneIntensity,bestRoute,N,maxWeight,A,B);
 		bestDistance = countDistance(bestRoute,customers,distanceMatrix);
+		//printVector(bestRoute);
 		bool foundImpr = false;
 		for(int i = 0; i<N-1;i++){
 			if(bestRoute[i] == 0) truckCount++;
 		}
 		//printVector(bestRoute);
-		tmpRoute = bestRoute;
+		//tmpRoute = bestRoute;
 		N = bestRoute.size();
 		double Pmin = Q/(double)customers.size();
         double Pmax = Q/(double)truckCount;
-		std::vector<double> rndValues(tmpRoute.size());
 		
 		splitRoute(routes,bestRoute);
-		//printVector(bestRoute);
+		//printMatrix(routes);
 		for(int j = 0; j < routes.size();j++){
 			routeTimes.push_back(countAntTime(routes[j],customers,distanceMatrix));
 		}
+		//printVector(bestRoute);
+		//std::cout << bestDistance;
+
         for(int i = 0; i < maxIterations;i++){
 
+			auto now = clock::now();
+			if(now - start >= std::chrono::seconds(maxseconds-5)){
+				//printVector(routeTimes);
+				long double L = 0;
+				for(int j = 0; j < routeTimes.size(); j++){
+					L += routeTimes[j];
+				}
+				bestDistance = L;
+				if(bestDistance < bestbestDistance){
+					bestRoutes = routes;
+					bestbestDistance = bestDistance;
+				}
+				connectRoute(bestRoutes,bestRoute);
+				bestbestDistance = countDistance(bestRoute,customers,distanceMatrix);
+				saveFile(bestRoutes, bestbestDistance,fileName);
+				std::cout << bestbestDistance;
+				return 0;
+			}
+		
+			//printMatrix(routes);
+			//printVector(routeTimes);
 			//MUTATION
             double Pm = Pmin + std::pow(Pmax - Pmin,1-(i)/(double)maxIterations);
 			//std::cout << Pm << "\n";
-			int maxLenI = 1,max2LenI = 0;
-			for(int j = 0; j < routeTimes.size();j++){
-				if(routeTimes[j] > routeTimes[maxLenI]){
-					max2LenI = maxLenI;
-					maxLenI = j;
-				}
-			}
+			int minI = 0,minI2 = 0;
+			int minJ = 0; int minJ2 = 0 ;
 			
-			std::cout << "mutate\n";
-			std::vector<double> randValues;
-			for(int j = 0; j < routes[maxLenI].size() + routes[max2LenI].size(); j++){
-				randValues.push_back((rand()%10000)/10000.0);
-			}
-			int minChI1 = 0; int minCHI2 =routes[maxLenI].size();
-			for(int j = 1;j < routes[maxLenI].size(); j++){
-				if(randValues[j] > Pm) continue;
-				if(randValues[j] < randValues[minChI1]) minChI1 = j;
-			}
-			for(int j = routes[maxLenI].size() + 1; j < randValues.size(); j++){
-				if(randValues[j] > Pm) continue;
-				if(randValues[j] < randValues[minCHI2]) minCHI2 = j;
-			}
-			if(randValues[minChI1] < Pm && randValues[minCHI2] < Pm){
-				std::swap(routes[maxLenI][minChI1], routes[max2LenI][minCHI2 - routes[maxLenI].size()]);
-				routeTimes[maxLenI] = countAntTime(routes[maxLenI],customers,distanceMatrix);
-				routeTimes[max2LenI] = countAntTime(routes[max2LenI],customers,distanceMatrix);
-			}
+			//std::cout << "mutate\n";
+			std::vector<std::vector<double>> randValues(routes.size());
+			randValues.clear();
 
-			
-			std::cout << "fix mutation\n";
-
-			bool swapped = false;
-			long double antTime = distanceMatrix[0][routes[maxLenI][0]] + customers[routes[maxLenI][0]].serviceTime;
-			for(int j = 1; j < routes[maxLenI].size();j++){
-				antTime = std::max(antTime + distanceMatrix[routes[maxLenI][j-1]][routes[maxLenI][j]],(long double)customers[routes[maxLenI][j]].readyTime);
-				
-				if(antTime > customers[routes[maxLenI][j]].dueTime){
-					long double tmp = antTime - distanceMatrix[routes[maxLenI][j-1]][routes[maxLenI][j]];
-					for(int k = j-1; k > 0; k++){
-						if(tmp < customers[routes[maxLenI][j]].dueTime && antTime -(distanceMatrix[routes[maxLenI][j-1]][routes[maxLenI][j]] + distanceMatrix[k-1 < 0 ? 0 :routes[max2LenI][k-1]][routes[maxLenI][k]]) + distanceMatrix[k-1 < 0 ? 0 :routes[maxLenI][k-1]][routes[maxLenI][j]] + distanceMatrix[routes[maxLenI][j-1]][routes[maxLenI][k]]){
-							int r = routes[maxLenI][j];
-							routes[maxLenI].erase(routes[maxLenI].begin() + j);
-							routes[maxLenI].insert(routes[maxLenI].begin() + k,r);
-							swapped = true;
-							break;
-						}
-					}
-					if(!swapped){ 
-						std::swap(routes[maxLenI][minChI1], routes[max2LenI][minCHI2 - routes[maxLenI].size()]);
-						break;
+			for(int j = 0; j < routes.size(); j++){
+				for(int k = 0; k < routes[j].size(); k++){
+					randValues[j].push_back((rand()%10000)/10000.0);
+					if(randValues[j][k] < randValues[minI][minJ]){
+						minI = j; minJ = k;
 					}
 				}
-
 			}
-			
-			if(swapped){
-				swapped = false;
-				antTime =0;
-				for(int j = 0; j < routes[max2LenI].size(); j++){
-					antTime = std::max(antTime + distanceMatrix[routes[max2LenI][j-1]][routes[max2LenI][j]],(long double)customers[routes[max2LenI][j]].readyTime);
-					if(antTime > customers[routes[max2LenI][j]].dueTime){
-						long double tmp = antTime - distanceMatrix[routes[max2LenI][j-1]][routes[max2LenI][j]];
-						for(int k = j-1; k >= 0; k--){
-							std::cout << k << "\t";
-							if(tmp < customers[routes[max2LenI][j]].dueTime && antTime -(distanceMatrix[routes[max2LenI][j-1]][routes[max2LenI][j]] + distanceMatrix[k-1 < 0 ? 0 :routes[max2LenI][k-1]][routes[max2LenI][k]]) + distanceMatrix[k-1 < 0 ? 0 :routes[max2LenI][k-1]][routes[max2LenI][j]] + distanceMatrix[routes[max2LenI][j-1]][routes[max2LenI][k]]){
-								int r = routes[max2LenI][j];
-								routes[max2LenI].erase(routes[max2LenI].begin() + j);
-								routes[max2LenI].insert(routes[max2LenI].begin() + k,r);
-								swapped = true;
-								break;
-							}
-						}
-						if(!swapped){ 
-							std::swap(routes[maxLenI][minChI1], routes[max2LenI][minCHI2 - routes[maxLenI].size()]);
-							break;
-						}
+			//std::cout << "mutate2\n";
+			for(int j = 1;j < randValues.size(); j++){
+				if (j == minI) continue;
+				for(int k = 0; k < randValues[j].size();k++){
+					if(randValues[j][k] > Pm) continue;
+					if(randValues[j][k] < randValues[minI2][minJ2]){
+						minI2 = j; minJ2 = k;
 					}
-
 				}
 			}
+			//std::cout << "mutate4 " << l << "\n";
+			//std::cout << minI << " " << minI2 << "\n";
+			if(randValues[minI][minJ] < Pm && randValues[minI2][minJ2] < Pm){
+				std::swap(routes[minI][minJ], routes[minI2][minJ2]);
+			}
 			
-			std::cout << "local update\n";
+
+			bool swappedBack = false;
+			//std::vector<int> r = routes[maxLenI];
+			long double antTime = 0;
+			int currWeight = maxWeight;
+			//std::cout << "fixing mutation\n" ;
+			if(!isRouteValid(routes[minI],customers,distanceMatrix,maxWeight) || !isRouteValid(routes[minI2],customers,distanceMatrix,maxWeight)){
+				std::swap(routes[minI][minJ], routes[minI2][minJ2]);
+			}else{
+				routeTimes[minI] = countAntTime(routes[minI],customers,distanceMatrix);
+				routeTimes[minI2] = countAntTime(routes[minI2],customers,distanceMatrix);
+			}
+
+		
+			//std::cout << "local search1\n";
 			//LOCAL SEARCH
 			//bestDistance = countDistance(bestRoute,customers,distanceMatrix);
 			//merge
-			for(int j = 0; j < routes.size(); j++){
-				for(int k = 0; k < routes.size(); k++){
+			//printMatrix(routes);
+			for(int j = 0; j < routes.size()-1; j++){
+				for(int k = j+1; k < routes.size(); k++){
 					if (k == j) continue;
 					long double savings = distanceMatrix[bestRoute[k-1]][0] + distanceMatrix[bestRoute[j+1]][0] - distanceMatrix[bestRoute[k-1]][bestRoute[j+1]];
 					if(savings > 0){
 						std::vector<int> r = routes[j];
+						
 						r.insert(r.end(),routes[k].begin(),routes[k].end());
-						if(isRouteValid(r,customers,distanceMatrix,maxWeight)){
+						//printVector(r);
+						bool v = isRouteValid(r,customers,distanceMatrix,maxWeight);
+						//std::cout << (v ? "true" : "false" )<< "\n";
+						if(v){
 							routes[j] = r; routes.erase(routes.begin() + k);
+							routeTimes.erase(routeTimes.begin() + k);
 							k--;
 						}
 					}
 				}
 			}
+			//printMatrix(routes);
+			//std::cout << "local search2\n";
+			now = clock::now();
+			if(now - start >= std::chrono::seconds(maxseconds-5)){
+				long double L = 0;
+				for(int j = 0; j < routeTimes.size(); j++){
+					L += routeTimes[j];
+				}
+				bestDistance = L;
 
-			std::cout << "local update\n";
+				if(bestDistance < bestbestDistance){
+					bestRoutes = routes;
+					bestbestDistance = bestDistance;
+				}
+				
+				connectRoute(bestRoutes,bestRoute);
+				bestbestDistance = countDistance(bestRoute,customers,distanceMatrix);
+				saveFile(bestRoutes, bestbestDistance,fileName);
+				std::cout << bestbestDistance;
+				return 0;
+			}
+		
+			//2opt
+			for(int j = 0; j < routes.size(); j++){
+				int N = routes[j].size();
+				for(int k = 0; k < N-2;k++){
+					for(int l = k + 1; l < N-1;l++){
+						long double dL = distanceMatrix[routes[j][k]][routes[j][k+1]] + distanceMatrix[routes[j][l]][routes[j][l+1]] - distanceMatrix[routes[j][k]][routes[j][l+1]] - distanceMatrix[routes[j][l]][routes[j][k+1]];
+						if(dL > 0){
+							std::vector<int> tmp = routes[j];
+							std::reverse(tmp.begin() + k + 1, tmp.begin() + l);
+							//printVector(tmp);
+							if(isRouteValid(tmp,customers,distanceMatrix,maxWeight)){
+								routes[j] = tmp;
+								routeTimes[j] = countAntTime(routes[j],customers,distanceMatrix);
+							}else{
+								tmp = routes[j];
+							}
+						}
+					}
+				}
+			}
+			//std::cout << "count times\n";
+			long double L = 0;
+			for(int j = 0; j < routeTimes.size(); j++){
+				L += routeTimes[j];
+			}
+			bestDistance = L;
+
+			//std::cout << "local update\n";
 			//LOCAL UPDATE
 			for(int j = 0; j < customers.size(); j++){
 				for(int k = j+1; k < customers.size(); k++){
@@ -524,25 +657,61 @@ int main(int argc, char* argv[]){
 				PheromoneIntensity[bestRoute[j-1]][bestRoute[j]] += dT;
 				if(bestRoute[j] == 0) routeNo++;
 			}
+
+			now = clock::now();
+			if(now - start >= std::chrono::seconds(maxseconds-5)){
+				if(bestDistance < bestbestDistance){
+					bestRoutes = routes;
+					bestbestDistance = bestDistance;
+				}
+				connectRoute(bestRoutes,bestRoute);
+				bestbestDistance = countDistance(bestRoute,customers,distanceMatrix);
+				saveFile(bestRoutes, bestbestDistance,fileName);
+				std::cout << bestbestDistance;
+				return 0;
+			}
+
         }
-		
+		l++;
+		//printVector(routeTimes);
 		//connectRoute(routes,bestRoute);
 		//GLOBAL UPDATING
 		for(int j = 0; j < customers.size(); j++){
 			for(int k = j+1; k < customers.size(); k++){
-				PheromoneIntensity[j][k] *= Rho + Q/bestDistance;
+				PheromoneIntensity[j][k] *= Rho; PheromoneIntensity[j][k] + Q/bestDistance;
 				PheromoneIntensity[k][j] = PheromoneIntensity[j][k];
 			}
 		}
+
+					long double L = 0;
+			for(int j = 0; j < routeTimes.size(); j++){
+				L += routeTimes[j];
+			}
+			bestDistance = L;
+
 		auto now = clock::now();
 		if(now - start >= std::chrono::seconds(maxseconds-10)){
 			break;
 		}
-
+		
 	}
+		long double L = 0;
+			for(int j = 0; j < routeTimes.size(); j++){
+				L += routeTimes[j];
+			}
+			bestDistance = L;
+		if(bestDistance < bestbestDistance){
+			bestRoutes = routes;
+			bestbestDistance = bestDistance;
+		}
+		connectRoute(bestRoutes,bestRoute);
+				bestbestDistance = countDistance(bestRoute,customers,distanceMatrix);
+				
+	std::cout << std::setprecision(5) <<  bestbestDistance;
 	//printMatrix(PheromoneIntensity,customers.size());
-
-	saveFile(routes, bestDistance,fileName);
+	//std::cout << "end\n";
+	saveFile(bestRoutes, bestbestDistance,fileName);
     return 0;
+	
 
 }
