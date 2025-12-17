@@ -59,7 +59,7 @@ void printVector(std::vector<T> M){
 	return;
 }
 
-bool solutionCorrectnessCheck(std::vector<Customer> &customers, std::vector<std::vector<long double>> &distanceMatrix) {
+bool solutionCorrectnessCheck(std::vector<Customer> &customers, std::vector<std::vector<long double>> &distanceMatrix, int maxCapacity) {
     int depot = 0;
 
     for(int i = 1; i < customers.size(); i++) {
@@ -67,7 +67,7 @@ bool solutionCorrectnessCheck(std::vector<Customer> &customers, std::vector<std:
         float startService = std::max(arrival, (float)customers[i].readyTime);
         float backToDepot = startService + customers[i].serviceTime + distanceMatrix[i][depot];
 
-        if(arrival > customers[i].dueTime || backToDepot > customers[depot].dueTime) {
+        if(arrival > customers[i].dueTime || backToDepot > customers[depot].dueTime || customers[i].demand > maxCapacity) {
             return false;
         }
     }
@@ -219,7 +219,7 @@ long double generateInitialSolutionANT(std::vector<Customer> customers,
 
 			if (curWeight - el.demand < 0) continue; // jak mamy za mało ładowności to skip
 			long double arrivalTime = currentTruckTime + distanceMatrix[currentNode][el.id];
-			if (arrivalTime > el.dueTime) continue; //jeżeli za późno to skip
+			if (arrivalTime > el.dueTime || arrivalTime + el.serviceTime + distanceMatrix[el.id][0] > customers[0].dueTime) continue; //jeżeli za późno to skip
 			
 			PheromonePair pheromone;
 			pheromone.index = el.id;
@@ -464,7 +464,7 @@ int main(int argc, char* argv[]){
     long double bestDistance = 0, bestbestDistance = (unsigned int) -1;
     calculateDistance(N,distanceMatrix,customers);
 	std::vector<std::vector<int>> routes, bestRoutes; std::vector<long double> routeTimes;
-	bool ok = solutionCorrectnessCheck(customers, distanceMatrix);
+	bool ok = solutionCorrectnessCheck(customers, distanceMatrix,maxWeight);
 	if(!ok){
 		saveFile(routes, -1,fileName);
 	}
@@ -516,7 +516,7 @@ int main(int argc, char* argv[]){
 				connectRoute(bestRoutes,bestRoute);
 				bestbestDistance = countDistance(bestRoute,customers,distanceMatrix);
 				saveFile(bestRoutes, bestbestDistance,fileName);
-				std::cout << bestbestDistance;
+				//std::cout << bestbestDistance;
 				return 0;
 			}
 		
@@ -612,7 +612,7 @@ int main(int argc, char* argv[]){
 				connectRoute(bestRoutes,bestRoute);
 				bestbestDistance = countDistance(bestRoute,customers,distanceMatrix);
 				saveFile(bestRoutes, bestbestDistance,fileName);
-				std::cout << bestbestDistance;
+				//std::cout << bestbestDistance;
 				return 0;
 			}
 		
@@ -667,7 +667,7 @@ int main(int argc, char* argv[]){
 				connectRoute(bestRoutes,bestRoute);
 				bestbestDistance = countDistance(bestRoute,customers,distanceMatrix);
 				saveFile(bestRoutes, bestbestDistance,fileName);
-				std::cout << bestbestDistance;
+				//std::cout << bestbestDistance;
 				return 0;
 			}
 
@@ -707,7 +707,7 @@ int main(int argc, char* argv[]){
 		connectRoute(bestRoutes,bestRoute);
 				bestbestDistance = countDistance(bestRoute,customers,distanceMatrix);
 				
-	std::cout << std::setprecision(5) <<  bestbestDistance;
+	//std::cout << std::setprecision(5) <<  bestbestDistance;
 	//printMatrix(PheromoneIntensity,customers.size());
 	//std::cout << "end\n";
 	saveFile(bestRoutes, bestbestDistance,fileName);
