@@ -195,7 +195,8 @@ long double calculatePheromoneTrailANT(std::vector<Customer> customers,
 long double generateInitialSolutionANT(std::vector<Customer> customers, 
 									   std::vector<std::vector<long double>> &distanceMatrix,
 									   std::vector<std::vector<double>> &pheromoneMatrix, 
-									   std::vector<int> &res, int N, int maxWeight, int A, int B){	
+									   std::vector<std::vector<int>> &res, int N, int maxWeight, int A, int B,
+                     std::vector<long double> &routeLen){	
 	
 	std::vector<Customer> notVisited = customers;
 	std::vector<Customer> visited;
@@ -230,7 +231,9 @@ long double generateInitialSolutionANT(std::vector<Customer> customers,
 		}
 		// tutaj wracamy do depotu 
 		if (pheroList.empty()) {
-			totalTime += currentTruckTime + distanceMatrix[currentNode][0]; 
+      currentTruckTime += distanceMatrix[currentNode][0];
+			routeLen.push_back(currentTruckTime);
+      totalTime += currentTruckTime;
 			currentNode = 0;
 			visited.push_back(customers[0]);
 			curWeight = maxWeight;
@@ -275,11 +278,20 @@ long double generateInitialSolutionANT(std::vector<Customer> customers,
 		//labmda 
 		notVisited.erase(std::remove_if(notVisited.begin(), notVisited.end(),[&](const Customer& c){ return c.id == picked; }),notVisited.end());
 	}
+  currentTruckTime += distanceMatrix[currentNode][0];
+  routeLen.push_back(currentTruckTime);
 	// dodajemy do res id punktów
-	for(Customer node : visited){
-		res.push_back(node.id);
+  std::vector<int> tmp;
+  visited.erase(visited.begin());
+  routeLen.erase(routeLen.begin());
+  for(Customer node : visited){
+    if(node.id == 0){
+      res.push_back(tmp);
+      tmp.clear(); continue;
+    }
+		tmp.push_back(node.id);
 	}
-	res.push_back(0);
+  res.push_back(tmp);
 	return 0;
 }
 
@@ -381,13 +393,16 @@ long double countDistance(std::vector<int> res, std::vector<Customer> customers,
 
 }
 
-long double countAntTime(std::vector<int> route, std::vector<Customer> customers, std::vector<std::vector<long double>> distanceMatrix){
+long double countAntTime(const std::vector<int> route,const std::vector<Customer> customers, const std::vector<std::vector<long double>> distanceMatrix){
 	long double time = 0;
-	time = std::max(distanceMatrix[0][route.front()],(long double)customers[route.front()].readyTime) + customers[route.front()].serviceTime;
-	for(int i = 0; i < route.size()-1; i++){
-		long double arriveTime = time + distanceMatrix[route[i]][route[i+1]];
-		time = std::max(arriveTime, (long double)customers[route[i+1]].readyTime);
-		time += customers[route[i+1]].serviceTime;
+	const Customer& c = customers[route.front()];
+  time = std::max((long double)c.readyTime, distanceMatrix[0][c.id]) + c.serviceTime;
+  time += c.serviceTime;
+	for(int i = 1; i < route.size(); i++){
+    const Customer& c = customers[route[i]];const Customer& c2 = customers[route[i-1]];
+		long double arriveTime = time + distanceMatrix[c2.id][c.id];
+		time = std::max(arriveTime, (long double)c.readyTime);
+		time += c.serviceTime;
 	}
 	time += distanceMatrix[route.back()][0];
 	return time;
@@ -454,7 +469,7 @@ int main(int argc, char* argv[]){
 	auto start = clock::now();
 	std::string fileName = argv[2];
 	int maxseconds = atoi(argv[3]);
-  int maxWeight = 200;
+  int maxWeight;
 	double Rho = 0.85;
   std::vector<Customer> customers;
   readFile(argv[1], customers, maxWeight);
@@ -469,7 +484,7 @@ int main(int argc, char* argv[]){
 		saveFile(routes, -1,fileName);
 	}
 	std::vector<std::vector<double>>PheromoneIntensity(N,std::vector<double>(N,1));
-	int l = 0;
+  
 	while(true){
 		
 		truckCount = 0;
@@ -477,23 +492,23 @@ int main(int argc, char* argv[]){
 		N = customers.size();
 		bestRoute.clear();
 		//std::cout << "generating new solution\n";
-		generateInitialSolutionANT(customers,distanceMatrix,PheromoneIntensity,bestRoute,N,maxWeight,A,B);
-		bestDistance = countDistance(bestRoute,customers,distanceMatrix);
-		N = bestRoute.size();
+		generateInitialSolutionANT(customers,distanceMatrix,PheromoneIntensity,routes,N,maxWeight,A,B,routeTimes);
+	//	printVector(routeTimes);
+    routeTimes.clear();
+    for(int i = 0; i < routes.size(); i++){
+    routeTimes.push_back(countAntTime(routes[i],customers,distanceMatrix));
+    }
+    //printVector(routeTimes);
+   // printMatrix(routes);
+    //bestDistance = countDistance(bestRoute,customers,distanceMatrix);
+		N = routes.size();
 		double Pmin = Q/(double)customers.size();
-    double Pmax = Q/(double)truckCount;
-		
-		splitRoute(routes,bestRoute);
-		//printMatrix(routes);
-		for(int j = 0; j < routes.size();j++){
-			routeTimes.push_back(countAntTime(routes[j],customers,distanceMatrix));
-		}
-
-        for(int i = 0; i < maxIterations;i++){
+    double Pmax = Q/(double)routes.size();
+		for(int i = 0; i < maxIterations;i++){
 
 			auto now = clock::now();
 			if(now - start >= std::chrono::seconds(maxseconds-5)){
-				//printVector(routeTimes);
+				printVector(routeTimes);
 				L = 0;
 				for(int j = 0; j < routeTimes.size(); j++){
 					L += countAntTime(routes[j],customers,distanceMatrix);
@@ -509,12 +524,14 @@ int main(int argc, char* argv[]){
 		
 			//MUTATION
       //std::cout << "mutete\n";
-
+      
       double Pm = Pmin + std::pow(Pmax - Pmin,1-(i)/(double)maxIterations);
 			//std::cout << Pm << "\n";
 			minI = -1;minI2 = -1;
 			minJ = -1; minJ2 = -1;
 			long double minRand = 1, tmp;
+      
+    //  std::cout << "m1\n";
 
 			for(int j = 0; j < routes.size(); j++){
 				for(int k = 0; k < routes[j].size(); k++){
@@ -523,6 +540,8 @@ int main(int argc, char* argv[]){
 						minI = j; minJ = k; minRand = tmp;
 				}
 			}
+
+      //std::cout << "m2\n";
       if(minI != -1){
       minRand = 1;
 			  for(int j = 1;j < routes.size(); j++){
@@ -538,7 +557,7 @@ int main(int argc, char* argv[]){
 				std::swap(routes[minI][minJ], routes[minI2][minJ2]);
 			}
 			
-
+      //std::cout << "m3\n";
 			if((!isRouteValid(routes[minI],customers,distanceMatrix,maxWeight) || !isRouteValid(routes[minI2],customers,distanceMatrix,maxWeight)) && minJ != -1 && minJ2 != -1){
 				std::swap(routes[minI][minJ], routes[minI2][minJ2]);
 			}else{
@@ -546,23 +565,22 @@ int main(int argc, char* argv[]){
 				routeTimes[minI2] = countAntTime(routes[minI2],customers,distanceMatrix);
 			}
 
-		
 			//LOCAL SEARCH
       //std::cout << "merge\n";
 			for(int j = 0; j < routes.size()-1; j++){
 				for(int k = j+1; k < routes.size(); k++){
-					if (k == j) continue;
-					long double savings = distanceMatrix[bestRoute[k-1]][0] + distanceMatrix[bestRoute[j+1]][0] - distanceMatrix[bestRoute[k-1]][bestRoute[j+1]];
+					long double savings = distanceMatrix[routes[j].back()][0] + distanceMatrix[routes[k].front()][0] - distanceMatrix[routes[j].back()][routes[k].front()];
 					if(savings > 0){
 						std::vector<int> r = routes[j];
-						
+            //printVector(r);
 						r.insert(r.end(),routes[k].begin(),routes[k].end());
 				
 						if(isRouteValid(r,customers,distanceMatrix,maxWeight)){
+              
 							routes[j] = std::move(r);
               routes.erase(routes.begin() + k);
-              routeTimes[j] -= savings;
-							routeTimes.erase(routeTimes.begin() + k);
+              //routeTimes[j] -= savings;
+							//routeTimes.erase(routeTimes.begin() + k);
 							k--;
 						}
 					}
@@ -581,7 +599,6 @@ int main(int argc, char* argv[]){
 					bestbestDistance = bestDistance;
 				}
 				saveFile(bestRoutes, bestbestDistance,fileName);
-				//std::cout << bestbestDistance;
 				return 0;
 			}
 		
@@ -604,6 +621,7 @@ int main(int argc, char* argv[]){
 					}
 				}
 			}
+     
 			L = 0;
 			for(int j = 0; j < routeTimes.size(); j++){
 				L += routeTimes[j];
@@ -611,6 +629,7 @@ int main(int argc, char* argv[]){
 			bestDistance = L;
 
 			//LOCAL UPDATE
+      //std::cout << "local Update\n";
 			for(int j = 0; j < customers.size(); j++){
 				for(int k = j+1; k < customers.size(); k++){
 					PheromoneIntensity[j][k] *= Rho;
@@ -631,7 +650,7 @@ int main(int argc, char* argv[]){
         PheromoneIntensity[0][routes[l].back()] += dT;
       }
 			now = clock::now();
-			if(now - start >= std::chrono::seconds(maxseconds-5)){
+		  if(now - start >= std::chrono::seconds(maxseconds-5)){
 				if(bestDistance < bestbestDistance){
 			     bestRoutes = std::move(routes);
 					bestbestDistance = bestDistance;
@@ -640,7 +659,7 @@ int main(int argc, char* argv[]){
 				return 0;
 			}
 
-    }
+      }
 
     // std::cout << "Global Update\n";
 
@@ -651,17 +670,6 @@ int main(int argc, char* argv[]){
 			}
 		}
 
-			L = 0;
-			for(int j = 0; j < routeTimes.size(); j++){
-				L += routeTimes[j];
-			}
-			bestDistance = L;
-    if(bestDistance < bestbestDistance){
-      bestRoutes.clear(); bestRoutes.resize(routes.size());
-      std::copy(routes.begin(),routes.end(),bestRoutes.begin());
-			bestbestDistance = bestDistance;
-		}
-
 		auto now = clock::now();
 		if(now - start >= std::chrono::seconds(maxseconds-10)){
 			break;
@@ -670,7 +678,7 @@ int main(int argc, char* argv[]){
   	}
 		L = 0;
 		for(int j = 0; j < routeTimes.size(); j++){
-		  L += countAntTime(routes[j],customers,distanceMatrix);
+		  L += routeTimes[j];
 		}
 		bestDistance = L;
 		if(bestDistance < bestbestDistance){
