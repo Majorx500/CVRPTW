@@ -203,7 +203,8 @@ long double generateInitialSolutionANT(std::vector<Customer> customers,
 	std::vector<PheromonePair> pheroList;
 	std::vector<PheromonePair> probList;
 
-	notVisited.erase(notVisited.begin()); //eliminate depot
+  routeLen.clear();
+	notVisited.erase(notVisited.begin()); //eliminate depot 
 
 	int currentNode = customers[0].id;
 	float total = 0;					
@@ -214,6 +215,7 @@ long double generateInitialSolutionANT(std::vector<Customer> customers,
 		float total = 0.0f;
 		pheroList.clear();
 		probList.clear();
+    
 
 		//ten for służy do wyliczenia pheromonów
 		for (Customer el : notVisited) {
@@ -396,7 +398,7 @@ long double countDistance(std::vector<int> res, std::vector<Customer> customers,
 long double countAntTime(const std::vector<int> route,const std::vector<Customer> customers, const std::vector<std::vector<long double>> distanceMatrix){
 	long double time = 0;
 	const Customer& c = customers[route.front()];
-  time = std::max((long double)c.readyTime, distanceMatrix[0][c.id]) + c.serviceTime;
+  time = std::max((long double)c.readyTime, distanceMatrix[0][c.id]);
   time += c.serviceTime;
 	for(int i = 1; i < route.size(); i++){
     const Customer& c = customers[route[i]];const Customer& c2 = customers[route[i-1]];
@@ -407,6 +409,29 @@ long double countAntTime(const std::vector<int> route,const std::vector<Customer
 	time += distanceMatrix[route.back()][0];
 	return time;
 }
+
+long double countAntTimes(const std::vector<std::vector<int>> routes, const std::vector<Customer> customers, const std::vector<std::vector<long double>> distanceMatrix, std::vector<long double> &routeTimes){
+	routeTimes.clear(); routeTimes.reserve(routes.size());
+  long double time, totalTime = 0;;
+  for(int j = 0; j < routes.size(); j++){
+    const std::vector<int>& route = routes[j];
+    time = 0;
+	  const Customer& c = customers[route.front()];
+    time = std::max((long double)c.readyTime, distanceMatrix[0][c.id]);
+    time += c.serviceTime;
+	  for(int i = 1; i < route.size(); i++){
+      const Customer& c = customers[route[i]];const Customer& c2 = customers[route[i-1]];
+	  	long double arriveTime = time + distanceMatrix[c2.id][c.id];
+	  	time = std::max(arriveTime, (long double)c.readyTime);
+		  time += c.serviceTime;
+	  }
+  	time += distanceMatrix[route.back()][0];
+    totalTime += time;
+    routeTimes.push_back(time);
+  }
+  return totalTime;
+}
+
 
 void swapEdges(std::vector<int> &res,int i, int j){
 	i+=1;
@@ -494,9 +519,9 @@ int main(int argc, char* argv[]){
 		//std::cout << "generating new solution\n";
 		generateInitialSolutionANT(customers,distanceMatrix,PheromoneIntensity,routes,N,maxWeight,A,B,routeTimes);
 	//	printVector(routeTimes);
-    routeTimes.clear();
+    //routeTimes.clear();
     for(int i = 0; i < routes.size(); i++){
-    routeTimes.push_back(countAntTime(routes[i],customers,distanceMatrix));
+    //routeTimes.push_back(countAntTime(routes[i],customers,distanceMatrix));
     }
     //printVector(routeTimes);
    // printMatrix(routes);
@@ -508,12 +533,9 @@ int main(int argc, char* argv[]){
 
 			auto now = clock::now();
 			if(now - start >= std::chrono::seconds(maxseconds-5)){
-				printVector(routeTimes);
-				L = 0;
-				for(int j = 0; j < routeTimes.size(); j++){
-					L += countAntTime(routes[j],customers,distanceMatrix);
-				}
-				bestDistance = L;
+				//printVector(routeTimes);
+        bestDistance = countAntTimes(routes,customers,distanceMatrix,routeTimes);
+
 				if(bestDistance < bestbestDistance){
           bestRoutes = std::move(routes);
           bestbestDistance = bestDistance;
@@ -576,11 +598,10 @@ int main(int argc, char* argv[]){
 						r.insert(r.end(),routes[k].begin(),routes[k].end());
 				
 						if(isRouteValid(r,customers,distanceMatrix,maxWeight)){
-              
-							routes[j] = std::move(r);
+              routes[j] = std::move(r);
               routes.erase(routes.begin() + k);
-              //routeTimes[j] -= savings;
-							//routeTimes.erase(routeTimes.begin() + k);
+              routeTimes[j] = routeTimes[j] - savings + routeTimes[k];
+							routeTimes.erase(routeTimes.begin() + k);
 							k--;
 						}
 					}
@@ -588,14 +609,11 @@ int main(int argc, char* argv[]){
 			}
 			now = clock::now();
 			if(now - start >= std::chrono::seconds(maxseconds-5)){
-				long double L = 0;
-				for(int j = 0; j < routeTimes.size(); j++){
-					L += routeTimes[j];
-				}
-				bestDistance = L;
+        //printVector(routeTimes);				
+				bestDistance = countAntTimes(routes,customers,distanceMatrix,routeTimes);
 
 				if(bestDistance < bestbestDistance){
-					bestRoutes = std::move(routes);
+					bestRoutes = routes;
 					bestbestDistance = bestDistance;
 				}
 				saveFile(bestRoutes, bestbestDistance,fileName);
@@ -607,24 +625,33 @@ int main(int argc, char* argv[]){
 			for(int j = 0; j < routes.size(); j++){
 				int N = routes[j].size();
 				for(int k = 0; k < N-2;k++){
-					for(int l = k + 1; l < N-1;l++){
-						long double dL = distanceMatrix[routes[j][k]][routes[j][k+1]] + distanceMatrix[routes[j][l]][routes[j][l+1]] - distanceMatrix[routes[j][k]][routes[j][l+1]] - distanceMatrix[routes[j][l]][routes[j][k+1]];
-						if(dL > 0){
+					for(int l = k + 3; l < N-1;l++){
+						long double dL = -distanceMatrix[routes[j][k]][routes[j][k+1]] - distanceMatrix[routes[j][l]][routes[j][l+1]] + distanceMatrix[routes[j][k]][routes[j][l]] + distanceMatrix[routes[j][l+1]][routes[j][k+1]];
+						if(dL < 0){
 							std::vector<int> tmp = routes[j];
-							std::reverse(tmp.begin() + k + 1, tmp.begin() + l);
-							//printVector(tmp);
-							if(isRouteValid(tmp,customers,distanceMatrix,maxWeight)){
-                routes[j] = std::move(tmp);
-                routeTimes[j] -= dL;
-							}
+              int m = k+1, n = l;
+                while(n > m){
+                 std::swap(tmp[m],tmp[n]);
+                  m++;n--;
+               } 
+
+							  if(isRouteValid(tmp,customers,distanceMatrix,maxWeight)){
+                  //std::cout << k << " " << l << " " << dL << " " << routeTimes[j] <<  "\n";
+                  //printVector(routes[j]);
+                  //printVector(tmp);
+                  routes[j] = std::move(tmp);                 
+                  routeTimes[j] += dL;
+							 }
+              
 						}
 					}
 				}
 			}
-     
+      
 			L = 0;
 			for(int j = 0; j < routeTimes.size(); j++){
 				L += routeTimes[j];
+        //std::cout << routeTimes[j] << " ";
 			}
 			bestDistance = L;
 
@@ -648,21 +675,12 @@ int main(int argc, char* argv[]){
 			  }
         dT = Q / (routes.size() * bestDistance) * ((routeTimes[l] - distanceMatrix[0][routes[l].back()])/(routes[l].size() * routeTimes[l]));
         PheromoneIntensity[0][routes[l].back()] += dT;
-      }
-			now = clock::now();
-		  if(now - start >= std::chrono::seconds(maxseconds-5)){
-				if(bestDistance < bestbestDistance){
-			     bestRoutes = std::move(routes);
-					bestbestDistance = bestDistance;
-				}
-				saveFile(bestRoutes, bestbestDistance,fileName);
-				return 0;
-			}
 
       }
-
+       now = clock::now();
+       if(now - start > std::chrono::seconds(maxseconds-5)) break;
+    }
     // std::cout << "Global Update\n";
-
 		for(int j = 0; j < customers.size(); j++){
 			for(int k = j+1; k < customers.size(); k++){
 				PheromoneIntensity[j][k] *= Rho; PheromoneIntensity[j][k] += Q/bestDistance;
@@ -676,11 +694,9 @@ int main(int argc, char* argv[]){
 		}
 		
   	}
-		L = 0;
-		for(int j = 0; j < routeTimes.size(); j++){
-		  L += routeTimes[j];
-		}
-		bestDistance = L;
+    //printVector(routeTimes);
+	  bestDistance = countAntTimes(routes,customers,distanceMatrix,routeTimes);
+
 		if(bestDistance < bestbestDistance){
       bestRoutes = std::move(routes);
 			bestbestDistance = bestDistance;
