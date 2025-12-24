@@ -452,12 +452,12 @@ bool isRouteValid(const std::vector<int> &route, const std::vector<Customer> &cu
         int to = route[i + 1];
         long double travelTime = distanceMatrix[from][to];
         currentTime += travelTime;
-		if(to == 0){
-			totalTime += currentTime;
-			currentLoad = 0;
-			currentTime = 0;
-			continue;
-		}
+	  	if(to == 0){
+			  totalTime += currentTime;
+			  currentLoad = 0;
+		  	currentTime = 0;
+		  	continue;
+		  }
         if (currentTime > customers[to].dueTime) {
             return false;
         }
@@ -545,7 +545,7 @@ int main(int argc, char* argv[]){
 			}
 		
 			//MUTATION
-      //std::cout << "mutete\n";
+     // std::cout << "mutete\n";
       
       double Pm = Pmin + std::pow(Pmax - Pmin,1-(i)/(double)maxIterations);
 			//std::cout << Pm << "\n";
@@ -553,7 +553,7 @@ int main(int argc, char* argv[]){
 			minJ = -1; minJ2 = -1;
 			long double minRand = 1, tmp;
       
-    //  std::cout << "m1\n";
+     // std::cout << "m1\n";
 
 			for(int j = 0; j < routes.size(); j++){
 				for(int k = 0; k < routes[j].size(); k++){
@@ -580,10 +580,12 @@ int main(int argc, char* argv[]){
 			}
 			
       //std::cout << "m3\n";
-			if((!isRouteValid(routes[minI],customers,distanceMatrix,maxWeight) || !isRouteValid(routes[minI2],customers,distanceMatrix,maxWeight)) && minJ != -1 && minJ2 != -1){
-				std::swap(routes[minI][minJ], routes[minI2][minJ2]);
-			}else{
-				routeTimes[minI] = countAntTime(routes[minI],customers,distanceMatrix);
+      //std::cout <<"A: " <<  minI << " " << minJ << "\t" << minI2 << " " << minJ2 << "\n";
+
+			if(minJ != -1 && minJ2 != -1 && (!isRouteValid(routes[minI],customers,distanceMatrix,maxWeight) || !isRouteValid(routes[minI2],customers,distanceMatrix,maxWeight)) ){
+      	std::swap(routes[minI][minJ], routes[minI2][minJ2]);
+			}else if (minJ != -1 && minJ2 != -1){
+        routeTimes[minI] = countAntTime(routes[minI],customers,distanceMatrix);
 				routeTimes[minI2] = countAntTime(routes[minI2],customers,distanceMatrix);
 			}
 
@@ -680,7 +682,7 @@ int main(int argc, char* argv[]){
        now = clock::now();
        if(now - start > std::chrono::seconds(maxseconds-5)) break;
     }
-    // std::cout << "Global Update\n";
+     //std::cout << "Global Update\n";
 		for(int j = 0; j < customers.size(); j++){
 			for(int k = j+1; k < customers.size(); k++){
 				PheromoneIntensity[j][k] *= Rho; PheromoneIntensity[j][k] += Q/bestDistance;
