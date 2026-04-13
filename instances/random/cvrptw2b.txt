@@ -1,0 +1,10 @@
+cvrptw2
+VEHICLE
+NUMBER     CAPACITY
+ 10        10
+CUSTOMER
+CUST NO.  XCOORD.  YCOORD.    DEMAND   READY TIME  DUE DATE   SERVICE TIME
+    0     0        0          0        0           100          0
+    1     0        10         10       30          300         10
+    2     0        20         20       10          120         10
+    3     0        30         10       20          180         10
